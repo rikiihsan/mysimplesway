@@ -103,7 +103,7 @@ systemctl --user enable wireplumber.service 2>/dev/null || warn "wireplumber.ser
 # Browser
 # -----------------------------------------------------
 log "Installing lightweight browser..."
-paru -S --needed --noconfirm midori-bin
+paru -S --needed --noconfirm qutebrowser
 
 # -----------------------------------------------------
 # User config files
