@@ -1,5 +1,4 @@
--- ==================== LIGHTWEIGHT NEOVIM CONFIG ====================
--- Optimized for: 4GB RAM + Intel Celeron N4020
+-- ==================== NEOVIM CONFIG ====================
 -- Focus: Fullstack Development (Go, PHP, Python + React, Svelte)
 -- Performance: Minimal plugins, lazy loading, low resource usage
 
@@ -154,7 +153,7 @@ require("lazy").setup({
     build = ":TSUpdate",
     event = { "BufReadPost", "BufNewFile" },
     config = function()
-      require("nvim-treesitter.config").setup({
+      require("nvim-treesitter.configs").setup({
         ensure_installed = {
           -- Backend (Primary)
           "go", "python", "php",
@@ -222,6 +221,20 @@ require("lazy").setup({
           tailwind = true,
           mode = "background",
         },
+      })
+    end,
+  },
+
+  -- Find and Replace across project (lightweight)
+  {
+    "nvim-pack/nvim-spectre",
+    cmd = "Spectre",
+    dependencies = { "nvim-lua/plenary.nvim" },
+    config = function()
+      require("spectre").setup({
+        line_sep_start = '┌-----------------------------------------',
+        result_padding = '¦  ',
+        line_sep       = '└-----------------------------------------',
       })
     end,
   },
@@ -382,7 +395,7 @@ vim.keymap.set("n", "<S-Tab>", ":bprevious<CR>")
 vim.keymap.set("n", "<leader>bd", ":bdelete<CR>")
 
 -- File explorer
-vim.keymap.set("n", "-", ":NvimTreeToggle<CR>")
+vim.keymap.set("n", "<leader>e", ":NvimTreeToggle<CR>")
 
 -- Telescope
 local telescope = require("telescope.builtin")
@@ -390,11 +403,18 @@ vim.keymap.set("n", "<leader>ff", telescope.find_files)
 vim.keymap.set("n", "<leader>fg", telescope.live_grep)
 vim.keymap.set("n", "<leader>fb", telescope.buffers)
 vim.keymap.set("n", "<leader>fr", telescope.oldfiles)
+vim.keymap.set("n", "<leader>fw", telescope.grep_string)  -- Search word under cursor
+vim.keymap.set("n", "<leader>fh", telescope.help_tags)    -- Search help
 
 -- Git
 vim.keymap.set("n", "<leader>gb", ":Gitsigns toggle_current_line_blame<CR>")
 vim.keymap.set("n", "]c", ":Gitsigns next_hunk<CR>")
 vim.keymap.set("n", "[c", ":Gitsigns prev_hunk<CR>")
+
+-- Find and Replace (Spectre - across entire project)
+vim.keymap.set("n", "<leader>sr", function() require("spectre").open() end, { desc = "Replace in project" })
+vim.keymap.set("n", "<leader>sw", function() require("spectre").open_visual({select_word=true}) end, { desc = "Replace word" })
+vim.keymap.set("v", "<leader>sw", function() require("spectre").open_visual() end, { desc = "Replace selection" })
 
 -- Visual mode
 vim.keymap.set("v", "<", "<gv")
@@ -415,6 +435,17 @@ vim.keymap.set("n", "<C-d>", "<C-d>zz")
 vim.keymap.set("n", "<C-u>", "<C-u>zz")
 vim.keymap.set("n", "n", "nzzzv")
 vim.keymap.set("n", "N", "Nzzzv")
+
+-- Find and Replace
+vim.keymap.set("n", "<leader>s", ":%s/")  -- Find/replace in file
+vim.keymap.set("v", "<leader>s", ":s/")   -- Find/replace in selection
+vim.keymap.set("n", "<leader>S", ":%s/<C-r><C-w>//g<Left><Left>")  -- Replace word under cursor
+
+-- Search
+vim.keymap.set("n", "<leader>/", "/")     -- Search forward
+vim.keymap.set("n", "<leader>?", "?")     -- Search backward
+vim.keymap.set("n", "*", "*zz")           -- Search word under cursor (centered)
+vim.keymap.set("n", "#", "#zz")           -- Search word backward (centered)
 
 -- ==================== AUTOCOMMANDS ====================
 
@@ -459,4 +490,4 @@ vim.api.nvim_create_autocmd("FileType", {
   end,
 })
 
-print("⚡ Lightweight Neovim Config Loaded!")
+print("Neovim Config Loaded Successfully!")
