@@ -12,7 +12,7 @@ set $right l
 set $term kitty
 
 # Browser
-set $browser midori
+set $browser qutebrowser
 
 # Application launcher
 set $menu wofi --show drun --show-icons
