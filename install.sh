@@ -125,6 +125,10 @@ for dir in nvim sway swaylock waybar wlogout wofi kitty mako; do
     fi
 done
 
+log "enable a screenshoot and screenrecord scripts"
+chmod +x ~/.config/sway/scripts/screenrecord.sh
+chmod +x ~/.config/sway/scripts/screenshoot.sh
+
 # -----------------------------------------------------
 # Development stack
 # -----------------------------------------------------
