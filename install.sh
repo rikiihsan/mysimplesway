@@ -112,7 +112,7 @@ log "Installing user configuration files..."
 
 mkdir -p "$HOME/.config"
 
-for dir in nvim sway swaylock waybar wlogout wofi kitty mako; do
+for dir in nvim sway swaylock waybar wlogout wofi kitty mako qutebrowser; do
     SRC="$SCRIPT_DIR/$dir"
     DST="$HOME/.config/$dir"
 
