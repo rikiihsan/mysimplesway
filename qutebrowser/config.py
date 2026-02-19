@@ -37,7 +37,7 @@ c.colors.tabs.selected.odd.fg = '#ffffff'
 c.colors.webpage.darkmode.enabled = True
 c.colors.webpage.darkmode.policy.images = 'smart'
 c.colors.webpage.darkmode.threshold.background = 128
-c.colors.webpage.darkmode.threshold.text = 128
+c.colors.webpage.darkmode.threshold.foreground = 128
 
 # Toggle dark mode
 config.bind('<Ctrl-d>', 'config-cycle colors.webpage.darkmode.enabled true false')
