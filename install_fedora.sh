@@ -36,50 +36,59 @@ log "Script directory: $SCRIPT_DIR"
 log "Log file: $LOG_FILE"
 
 # -----------------------------------------------------
-# Enable RPM Fusion (Free & Non-Free)
-# Dibutuhkan untuk beberapa codec dan driver
+# User choices
+# -----------------------------------------------------
+log "Selecting browser..."
+echo "Pilih browser:"
+select BROWSER in "brave" "qutebrowser"; do
+    [[ "$BROWSER" == "brave" || "$BROWSER" == "qutebrowser" ]] && break
+    echo "Pilihan tidak valid"
+done
+log "Browser selected: $BROWSER"
+
+echo
+log "Selecting Neovim profile..."
+echo "Pilih Neovim config:"
+select NVIM_PROFILE in "max" "lite"; do
+    [[ "$NVIM_PROFILE" == "max" || "$NVIM_PROFILE" == "lite" ]] && break
+    echo "Pilihan tidak valid"
+done
+log "Neovim profile selected: $NVIM_PROFILE"
+
+# -----------------------------------------------------
+# Enable RPM Fusion
 # -----------------------------------------------------
 log "Enabling RPM Fusion repositories..."
-
 sudo dnf install -y \
     "https://mirrors.rpmfusion.org/free/fedora/rpmfusion-free-release-$(rpm -E %fedora).noarch.rpm" \
     "https://mirrors.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-$(rpm -E %fedora).noarch.rpm" || \
-    warn "RPM Fusion mungkin sudah terpasang, lanjut..."
+    warn "RPM Fusion mungkin sudah terpasang"
 
 # -----------------------------------------------------
 # Core packages
 # -----------------------------------------------------
-log "Installing core Sway & Wayland packages..."
-
+log "Installing core packages..."
 sudo dnf install -y \
     sway swaylock swayidle swaybg waybar xorg-x11-server-Xwayland \
     kitty wl-clipboard brightnessctl \
     pipewire pipewire-alsa pipewire-pulseaudio wireplumber \
     google-noto-fonts-common google-noto-emoji-fonts fira-code-fonts \
-    polkit-gnome \
+    mate-polkit \
     xdg-desktop-portal xdg-desktop-portal-wlr \
     wofi wget unzip fontawesome-fonts \
-    mako
+    mako tar
 
 # -----------------------------------------------------
-# Enable Copr untuk greetd + tuigreet
-# Fedora tidak menyediakan greetd di repo resmi
+# greetd + tuigreet
 # -----------------------------------------------------
-log "Enabling COPR repo for greetd..."
-sudo dnf copr enable -y agriffis/neovim-nightly 2>/dev/null || true
-sudo dnf copr enable -y reifi/greetd 2>/dev/null || \
-    warn "COPR greetd tidak tersedia, coba install manual"
+log "Enabling COPR for greetd..."
+sudo dnf copr enable -y reifi/greetd 2>/dev/null || true
 
-log "Installing greetd + tuigreet..."
-
-# Coba install dari COPR, fallback ke build dari source jika gagal
 if ! sudo dnf install -y greetd greetd-tuigreet 2>/dev/null; then
-    warn "greetd tidak ditemukan di COPR, menginstall dari source..."
-
-    sudo dnf install -y cargo rust
+    warn "Installing greetd + tuigreet from source..."
+    sudo dnf install -y cargo rust git
     TMPDIR="$(mktemp -d)"
 
-    # Build greetd
     git clone https://git.sr.ht/~kennylevinsen/greetd "$TMPDIR/greetd"
     pushd "$TMPDIR/greetd" >/dev/null
     cargo build --release
@@ -88,7 +97,6 @@ if ! sudo dnf install -y greetd greetd-tuigreet 2>/dev/null; then
     sudo install -Dm644 greetd.service /etc/systemd/system/greetd.service
     popd >/dev/null
 
-    # Build tuigreet
     git clone https://github.com/apognu/tuigreet "$TMPDIR/tuigreet"
     pushd "$TMPDIR/tuigreet" >/dev/null
     cargo build --release
@@ -96,130 +104,102 @@ if ! sudo dnf install -y greetd greetd-tuigreet 2>/dev/null; then
     popd >/dev/null
 
     rm -rf "$TMPDIR"
-    log "greetd + tuigreet berhasil diinstall dari source"
-fi
-
-# wlogout - install dari source jika tidak ada di repo
-if ! sudo dnf install -y wlogout 2>/dev/null; then
-    warn "wlogout tidak ada di repo, build dari source..."
-    sudo dnf install -y meson ninja-build gtk3-devel gtk-layer-shell-devel
-    TMPDIR="$(mktemp -d)"
-    git clone https://github.com/ArtsyMacaw/wlogout "$TMPDIR/wlogout"
-    pushd "$TMPDIR/wlogout" >/dev/null
-    meson build
-    ninja -C build
-    sudo ninja -C build install
-    popd >/dev/null
-    rm -rf "$TMPDIR"
-fi
-
-# Buat user greetd jika belum ada
-if ! id greeter &>/dev/null; then
-    sudo useradd -M -G video greeter
 fi
 
 sudo systemctl enable greetd.service
 sudo systemctl set-default graphical.target
 
-GREETD_CONFIG_SRC="$SCRIPT_DIR/greetd/config.toml"
-GREETD_CONFIG_DST="/etc/greetd/config.toml"
-
-if [[ ! -f "$GREETD_CONFIG_SRC" ]]; then
-    error "Missing greetd config: $GREETD_CONFIG_SRC"
-    exit 1
-fi
-
-log "Installing greetd config..."
-sudo install -Dm644 "$GREETD_CONFIG_SRC" "$GREETD_CONFIG_DST"
+sudo install -Dm644 "$SCRIPT_DIR/greetd/config.toml" /etc/greetd/config.toml
 
 # -----------------------------------------------------
-# PipeWire (user services)
-# Di Fedora PipeWire biasanya sudah aktif,
-# tapi kita pastikan tetap enabled
+# PipeWire
 # -----------------------------------------------------
 log "Enabling PipeWire user services..."
-
-systemctl --user enable pipewire.service 2>/dev/null || warn "pipewire.service already enabled"
-systemctl --user enable pipewire-pulse.service 2>/dev/null || warn "pipewire-pulse.service already enabled"
-systemctl --user enable wireplumber.service 2>/dev/null || warn "wireplumber.service already enabled"
+systemctl --user enable pipewire.service pipewire-pulse.service wireplumber.service 2>/dev/null || true
 
 # -----------------------------------------------------
 # Browser
 # -----------------------------------------------------
-log "Installing qutebrowser..."
-sudo dnf install -y qutebrowser
+if [[ "$BROWSER" == "brave" ]]; then
+    log "Installing Brave browser..."
+    sudo dnf install dnf-plugins-core
+
+    sudo dnf config-manager addrepo --from-repofile=https://brave-browser-rpm-release.s3.brave.com/brave-browser.repo
+
+    sudo dnf install brave-browser
+else
+    log "Installing qutebrowser..."
+    sudo dnf install -y qutebrowser
+fi
 
 # -----------------------------------------------------
 # User config files
 # -----------------------------------------------------
 log "Installing user configuration files..."
-
 mkdir -p "$HOME/.config"
 
-for dir in nvim sway swaylock waybar wlogout wofi kitty mako qutebrowser; do
-    SRC="$SCRIPT_DIR/$dir"
-    DST="$HOME/.config/$dir"
+CONFIG_DIRS=(sway swaylock waybar wlogout wofi kitty mako)
+
+[[ "$BROWSER" == "qutebrowser" ]] && CONFIG_DIRS+=(qutebrowser)
+CONFIG_DIRS+=(nvim)
+
+for dir in "${CONFIG_DIRS[@]}"; do
+    if [[ "$dir" == "nvim" ]]; then
+        SRC="$SCRIPT_DIR/nvim/$NVIM_PROFILE"
+        DST="$HOME/.config/nvim"
+    else
+        SRC="$SCRIPT_DIR/$dir"
+        DST="$HOME/.config/$dir"
+    fi
 
     if [[ -d "$SRC" ]]; then
         log "Copying config: $dir"
         rm -rf "$DST"
         cp -r "$SRC" "$DST"
     else
-        warn "Config directory not found: $SRC (skipped)"
+        warn "Config directory not found: $SRC"
     fi
 done
 
-log "Enable screenshot and screenrecord scripts..."
-chmod +x ~/.config/sway/scripts/screenrecord.sh
-chmod +x ~/.config/sway/scripts/screenshoot.sh
+chmod +x ~/.config/sway/scripts/*.sh 2>/dev/null || true
 
 # -----------------------------------------------------
-# Development stack
+# Development tools
 # -----------------------------------------------------
 log "Installing development tools..."
-
 sudo dnf install -y \
     neovim git nodejs npm python3 python3-pip golang php composer \
-    ripgrep fd-find lazygit python3-black
+    ripgrep fd-find python3-black
 
 # Go tools
-log "Installing Go tools..."
 go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
 go install golang.org/x/tools/cmd/goimports@latest
 
-# npm global (user-local)
-log "Configuring npm global directory..."
+# npm global
 mkdir -p "$HOME/.npm-global"
 npm config set prefix "$HOME/.npm-global"
 npm install -g eslint_d prettier
 
-# Composer global tools
-log "Installing Composer tools..."
-composer global require squizlabs/php_codesniffer
-composer global require friendsofphp/php-cs-fixer
+# Composer tools
+composer global require squizlabs/php_codesniffer friendsofphp/php-cs-fixer
 
 # -----------------------------------------------------
-# Persist PATH
+# PATH persistence
 # -----------------------------------------------------
-log "Updating PATH in ~/.bashrc..."
+if ! grep -q "Dev Tools PATH" "$HOME/.bashrc"; then
+cat >> "$HOME/.bashrc" <<'EOF'
 
-if ! grep -q "Dev Tools PATH" "$HOME/.bashrc" 2>/dev/null; then
-    {
-        echo ''
-        echo '# ---- Dev Tools PATH ----'
-        echo 'export PATH="$PATH:$(go env GOPATH)/bin"'
-        echo 'export PATH="$HOME/.npm-global/bin:$PATH"'
-        echo 'export PATH="$HOME/.config/composer/vendor/bin:$PATH"'
-    } >> "$HOME/.bashrc"
-else
-    warn "PATH block already exists in ~/.bashrc"
+# ---- Dev Tools PATH ----
+export PATH="$PATH:$(go env GOPATH)/bin"
+export PATH="$HOME/.npm-global/bin:$PATH"
+export PATH="$HOME/.config/composer/vendor/bin:$PATH"
+EOF
 fi
 
 # -----------------------------------------------------
-# Nerd Font (FiraCode)
+# Nerd Font
 # -----------------------------------------------------
 log "Installing FiraCode Nerd Font..."
-
 FONT_DIR="$HOME/.local/share/fonts"
 mkdir -p "$FONT_DIR"
 pushd "$FONT_DIR" >/dev/null
@@ -229,29 +209,9 @@ if [[ ! -f "FiraCodeNerdFont-Regular.ttf" ]]; then
     unzip -o FiraCode.zip
     rm -f FiraCode.zip
     fc-cache -f
-    log "FiraCode Nerd Font installed"
-else
-    warn "FiraCode Nerd Font already present"
 fi
-
 popd >/dev/null
 
 # -----------------------------------------------------
-# SELinux note (Fedora-specific)
-# -----------------------------------------------------
-log "Catatan SELinux:"
-warn "Fedora menggunakan SELinux (Enforcing by default)."
-warn "Jika greetd atau sway tidak bisa jalan, cek: sudo ausearch -m avc -ts recent"
-warn "Atau set sementara ke permissive: sudo setenforce 0 (tidak disarankan untuk produksi)"
-
-# -----------------------------------------------------
 log "Installation completed successfully"
-log "Reboot to start tuigreet login"
-echo
-echo "✅ Sway minimal developer setup untuk Fedora selesai"
-echo "📄 Log saved to: $LOG_FILE"
-echo
-echo "⚠️  Catatan penting untuk Fedora:"
-echo "   - Jika greetd tidak tersedia di COPR, script akan build dari source (butuh waktu)"
-echo "   - SELinux bisa menyebabkan masalah — periksa log dengan: sudo ausearch -m avc -ts recent"
-echo "   - Reboot sekarang untuk masuk ke tuigreet"
+echo "Reboot untuk masuk ke tuigreet"
