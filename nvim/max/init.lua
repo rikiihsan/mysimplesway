@@ -1,32 +1,36 @@
--- ==================== NEOVIM CONFIG — 12GB RAM / Pentium Gold 2c2t ====================
+-- ==================== NEOVIM CONFIG — 12GB RAM / Pentium Gold G3260 2c2t ====================
 -- RAM: Bebas pakai plugin lebih banyak
--- CPU: Masih dual core, hindari plugin yang berat di background thread
+-- CPU: Dual core Haswell 3.3GHz — hindari background thread berat
 -- Target: Fullstack Dev (Go, PHP, Python + React, Svelte)
--- Future proof: siap upgrade ke 4c4t (tidak ada yang perlu diubah)
+-- Changelog:
+--   + Codeium AI autocomplete (ghost text + cmp source)
+--   + nvim-cmp debounce & optimasi
+--   + Go LSP false positive fix (stale diagnostics)
+--   + Deteksi error saat ngetik (insert mode, Error only)
+--   + Responsivitas: updatetime 100, hapus lazyredraw, LSP debounce
 
 -- ==================== LEADER KEY ====================
 vim.g.mapleader = " "
 vim.g.maplocalleader = " "
 
 -- ==================== PERFORMANCE SETTINGS ====================
--- RAM sudah 12GB, tapi CPU masih 2c2t — jangan longgarkan semua limit
-vim.opt.updatetime = 200        -- Lebih responsif dari sebelumnya (300 → 200)
+vim.opt.updatetime = 100         -- ✅ Turun dari 200 → 100 (lebih responsif CursorHold)
 vim.opt.timeoutlen = 400
-vim.opt.lazyredraw = true       -- Tetap dipertahankan (CPU masih lemah)
+-- ❌ lazyredraw DIHAPUS — di Neovim modern justru bikin input lag & glitch
 vim.opt.ttyfast = true
-vim.opt.synmaxcol = 300         -- Dinaikkan sedikit (RAM cukup)
+vim.opt.synmaxcol = 300
 vim.opt.regexpengine = 1
 
 -- ==================== UI SETTINGS ====================
 vim.opt.number = true
-vim.opt.relativenumber = true   -- ✅ Diaktifkan (RAM cukup, CPU impact minimal)
+vim.opt.relativenumber = true
 vim.opt.signcolumn = "yes"
 vim.opt.cursorline = true
-vim.opt.scrolloff = 8           -- Dinaikkan (lebih nyaman coding)
+vim.opt.scrolloff = 8
 vim.opt.sidescrolloff = 8
-vim.opt.colorcolumn = "80,120"  -- ✅ Dua kolom marker (80 & 120)
+vim.opt.colorcolumn = "80,120"
 vim.opt.cmdheight = 1
-vim.opt.showmode = false        -- Mode ditampilkan oleh statusline
+vim.opt.showmode = false
 vim.opt.termguicolors = true
 
 -- ==================== EDITING ====================
@@ -36,7 +40,7 @@ vim.opt.tabstop = 4
 vim.opt.softtabstop = 4
 vim.opt.smartindent = true
 vim.opt.wrap = false
-vim.opt.linebreak = true        -- Wrap di word boundary kalau wrap diaktifkan
+vim.opt.linebreak = true
 
 -- ==================== SEARCH ====================
 vim.opt.ignorecase = true
@@ -47,7 +51,7 @@ vim.opt.incsearch = true
 -- ==================== SYSTEM ====================
 vim.opt.clipboard = "unnamedplus"
 vim.opt.undofile = true
-vim.opt.undolevels = 10000      -- ✅ Dinaikkan (RAM 12GB)
+vim.opt.undolevels = 10000
 vim.opt.swapfile = false
 vim.opt.backup = false
 vim.opt.sessionoptions = "blank,buffers,curdir,folds,help,tabpages,winsize,winpos,terminal,localoptions"
@@ -58,12 +62,12 @@ vim.opt.splitbelow = true
 
 -- ==================== COMPLETION ====================
 vim.opt.completeopt = "menu,menuone,noselect"
-vim.opt.pumheight = 15          -- ✅ Dinaikkan (lebih banyak item terlihat)
+vim.opt.pumheight = 15
 
--- ==================== FOLDING (opsional, bisa diaktifkan) ====================
+-- ==================== FOLDING ====================
 vim.opt.foldmethod = "expr"
 vim.opt.foldexpr = "nvim_treesitter#foldexpr()"
-vim.opt.foldlevel = 99          -- Semua terbuka by default
+vim.opt.foldlevel = 99
 
 -- ==================== PLUGIN MANAGER (lazy.nvim) ====================
 local lazypath = vim.fn.stdpath("data") .. "/lazy/lazy.nvim"
@@ -86,14 +90,12 @@ require("lazy").setup({
     dependencies = {
       "williamboman/mason.nvim",
       "williamboman/mason-lspconfig.nvim",
-      -- ✅ NEU: Progress indicator untuk LSP loading
       { "j-hui/fidget.nvim", opts = { notification = { window = { winblend = 0 } } } },
-      -- ✅ NEU: Neovim Lua LSP hints (berguna kalau edit config nvim)
       { "folke/neodev.nvim", opts = {} },
     },
   },
 
-  -- ✅ NEU: Formatter yang dedicated (lebih kontrol dari lsp.buf.format)
+  -- ── Formatter ─────────────────────────────────────────────────────────────
   {
     "stevearc/conform.nvim",
     event = { "BufWritePre" },
@@ -115,9 +117,27 @@ require("lazy").setup({
           markdown   = { "prettier" },
         },
         format_on_save = {
-          timeout_ms = 1000,   -- Timeout agar tidak freeze di CPU lemah
+          timeout_ms = 1000,
           lsp_fallback = true,
         },
+      })
+    end,
+  },
+
+  -- ── AI Autocomplete: Codeium ──────────────────────────────────────────────
+  -- ✅ NEU: Ghost text AI completion — :Codeium Auth untuk login pertama kali
+  {
+    "Exafunction/codeium.nvim",
+    event = "InsertEnter",
+    dependencies = {
+      "nvim-lua/plenary.nvim",
+      "hrsh7th/nvim-cmp",
+    },
+    config = function()
+      require("codeium").setup({
+        -- Virtual text (ghost text) mode
+        enable_chat = false,   -- Matikan chat UI, hemat CPU
+        -- Codeium akan otomatis terhubung ke akun lewat :Codeium Auth
       })
     end,
   },
@@ -130,10 +150,11 @@ require("lazy").setup({
       "hrsh7th/cmp-nvim-lsp",
       "hrsh7th/cmp-buffer",
       "hrsh7th/cmp-path",
-
       "L3MON4D3/LuaSnip",
       "saadparwaiz1/cmp_luasnip",
-      "rafamadriz/friendly-snippets",  -- ✅ NEU: Snippet library siap pakai
+      "rafamadriz/friendly-snippets",
+      -- ✅ Codeium sebagai cmp source (muncul di dropdown bersama LSP)
+      "Exafunction/codeium.nvim",
     },
   },
 
@@ -143,7 +164,6 @@ require("lazy").setup({
     cmd = "Telescope",
     dependencies = {
       "nvim-lua/plenary.nvim",
-      -- ✅ NEU: Native sorter (C extension, jauh lebih cepat di CPU lemah)
       { "nvim-telescope/telescope-fzf-native.nvim", build = "make" },
     },
     config = function()
@@ -157,7 +177,6 @@ require("lazy").setup({
             "node_modules", ".git/", "vendor/", "%.lock",
             "__pycache__", "%.pyc", "dist/", "build/",
           },
-          -- ✅ Penting untuk CPU lemah: batasi proses grep
           vimgrep_arguments = {
             "rg", "--color=never", "--no-heading",
             "--with-filename", "--line-number", "--column",
@@ -171,7 +190,7 @@ require("lazy").setup({
           find_files = { hidden = true },
         },
       })
-      telescope.load_extension("fzf")  -- Native sorter
+      telescope.load_extension("fzf")
     end,
   },
 
@@ -203,11 +222,11 @@ require("lazy").setup({
               },
             },
           },
-          highlight_git = true,         -- ✅ Highlight file berdasar git status
+          highlight_git = true,
         },
         filters = { dotfiles = false, custom = { "^.git$" } },
         git = { enable = true },
-        update_focused_file = { enable = true },  -- ✅ NEU: Sync dengan buffer aktif
+        update_focused_file = { enable = true },
         actions = {
           open_file = { quit_on_open = false },
         },
@@ -221,7 +240,7 @@ require("lazy").setup({
     build = ":TSUpdate",
     event = { "BufReadPost", "BufNewFile" },
     dependencies = {
-      "nvim-treesitter/nvim-treesitter-textobjects",  -- ✅ NEU: Text objects (vaf, dif, dll)
+      "nvim-treesitter/nvim-treesitter-textobjects",
     },
     config = function()
       require("nvim-treesitter.config").setup({
@@ -232,18 +251,17 @@ require("lazy").setup({
           "json", "jsonc", "yaml", "toml",
           "markdown", "markdown_inline",
           "bash", "lua", "vim", "vimdoc",
-          "sql",                         -- ✅ NEU: SQL highlight
-          "dockerfile",                  -- ✅ NEU: Dockerfile support
-          "gitignore", "gitcommit",      -- ✅ NEU: Git files
+          "sql",
+          "dockerfile",
+          "gitignore", "gitcommit",
         },
         sync_install = false,
-        auto_install = true,            -- ✅ Diaktifkan (RAM cukup)
+        auto_install = true,
         highlight = {
           enable = true,
           additional_vim_regex_highlighting = false,
         },
         indent = { enable = true },
-        -- ✅ NEU: Text objects (fungsi, class, parameter)
         textobjects = {
           select = {
             enable = true,
@@ -288,10 +306,8 @@ require("lazy").setup({
           topdelete = { text = "▔" },
           changedelete = { text = "▎" },
         },
-        current_line_blame = false,     -- Matikan by default (bisa toggle)
-        current_line_blame_opts = {
-          delay = 500,                  -- Delay agar CPU tidak terus-terusan compute
-        },
+        current_line_blame = false,
+        current_line_blame_opts = { delay = 500 },
         on_attach = function(bufnr)
           local gs = package.loaded.gitsigns
           local opts = { buffer = bufnr }
@@ -308,7 +324,6 @@ require("lazy").setup({
     end,
   },
 
-  -- ✅ NEU: Git UI (lebih nyaman dari command line git)
   {
     "kdheepak/lazygit.nvim",
     cmd = "LazyGit",
@@ -331,13 +346,12 @@ require("lazy").setup({
     event = "InsertEnter",
     config = function()
       require("nvim-autopairs").setup({
-        check_ts = true,   -- ✅ Gunakan treesitter (RAM cukup, CPU overhead minimal)
+        check_ts = true,
         ts_config = {
           lua = { "string" },
           javascript = { "template_string" },
         },
       })
-      -- Integrasi dengan nvim-cmp
       local cmp_autopairs = require("nvim-autopairs.completion.cmp")
       local cmp = require("cmp")
       cmp.event:on("confirm_done", cmp_autopairs.on_confirm_done())
@@ -402,7 +416,6 @@ require("lazy").setup({
   },
 
   -- ── Statusline ────────────────────────────────────────────────────────────
-  -- ✅ NEU: Lualine (ringan, informatif, cantik)
   {
     "nvim-lualine/lualine.nvim",
     event = "VeryLazy",
@@ -413,12 +426,12 @@ require("lazy").setup({
           theme = "catppuccin",
           component_separators = { left = "", right = "" },
           section_separators   = { left = "", right = "" },
-          globalstatus = true,   -- Satu statusline untuk semua split
+          globalstatus = true,
         },
         sections = {
           lualine_a = { "mode" },
           lualine_b = { "branch", "diff", "diagnostics" },
-          lualine_c = { { "filename", path = 1 } },  -- Path relatif
+          lualine_c = { { "filename", path = 1 } },
           lualine_x = { "encoding", "fileformat", "filetype" },
           lualine_y = { "progress" },
           lualine_z = { "location" },
@@ -427,7 +440,6 @@ require("lazy").setup({
     end,
   },
 
-  -- ✅ NEU: Buffer tabs (biar mirip VS Code, gampang navigasi)
   {
     "akinsho/bufferline.nvim",
     event = "VeryLazy",
@@ -449,15 +461,13 @@ require("lazy").setup({
   },
 
   -- ── Which Key ─────────────────────────────────────────────────────────────
-  -- ✅ NEU: Popup yang bantu ingat keybinding (sangat berguna!)
   {
     "folke/which-key.nvim",
     event = "VeryLazy",
     config = function()
       require("which-key").setup({
-        delay = 500,   -- Muncul setelah 500ms (tidak ganggu typing)
+        delay = 500,
       })
-      -- Register prefix labels
       require("which-key").add({
         { "<leader>f", group = "Find (Telescope)" },
         { "<leader>g", group = "Git" },
@@ -466,12 +476,12 @@ require("lazy").setup({
         { "<leader>b", group = "Buffer" },
         { "<leader>c", group = "Code (LSP)" },
         { "<leader>d", group = "Diagnostics" },
+        { "<leader>a", group = "AI (Codeium)" },  -- ✅ NEU
       })
     end,
   },
 
   -- ── Indent Guide ──────────────────────────────────────────────────────────
-  -- ✅ NEU: Garis indent yang membantu baca kode bersarang
   {
     "lukas-reineke/indent-blankline.nvim",
     event = { "BufReadPost", "BufNewFile" },
@@ -488,7 +498,6 @@ require("lazy").setup({
   },
 
   -- ── Todo Comments ─────────────────────────────────────────────────────────
-  -- ✅ NEU: Highlight TODO, FIXME, HACK, NOTE, dll
   {
     "folke/todo-comments.nvim",
     event = { "BufReadPost", "BufNewFile" },
@@ -508,32 +517,27 @@ require("lazy").setup({
     end,
   },
 
-  -- ── Flash (Better Navigation) ─────────────────────────────────────────────
-  -- ✅ NEU: Jump ke mana saja dalam layar dengan cepat (pengganti hop/leap)
+  -- ── Flash ─────────────────────────────────────────────────────────────────
   {
     "folke/flash.nvim",
     event = "VeryLazy",
     config = true,
     keys = {
-      { "s",     mode = { "n", "x", "o" }, function() require("flash").jump() end,   desc = "Flash Jump" },
-      { "S",     mode = { "n", "x", "o" }, function() require("flash").treesitter() end, desc = "Flash Treesitter" },
-      { "r",     mode = "o",               function() require("flash").remote() end,  desc = "Remote Flash" },
-      { "<C-s>", mode = { "c" },           function() require("flash").toggle() end,  desc = "Toggle Flash Search" },
+      { "s",     mode = { "n", "x", "o" }, function() require("flash").jump() end,        desc = "Flash Jump" },
+      { "S",     mode = { "n", "x", "o" }, function() require("flash").treesitter() end,  desc = "Flash Treesitter" },
+      { "r",     mode = "o",               function() require("flash").remote() end,       desc = "Remote Flash" },
+      { "<C-s>", mode = { "c" },           function() require("flash").toggle() end,       desc = "Toggle Flash Search" },
     },
   },
 
   -- ── Surround ──────────────────────────────────────────────────────────────
-  -- ✅ NEU: Tambah/ubah/hapus surround (quotes, brackets, tags)
   {
     "kylechui/nvim-surround",
     event = "VeryLazy",
     config = true,
-    -- ys{motion}{char} = add, cs{old}{new} = change, ds{char} = delete
-    -- Contoh: ysiw" = surround word dgn quote, cs"' = ganti " jadi '
   },
 
   -- ── Trouble ───────────────────────────────────────────────────────────────
-  -- ✅ NEU: Panel diagnostics yang rapi (error, warning di seluruh project)
   {
     "folke/trouble.nvim",
     cmd = "Trouble",
@@ -549,7 +553,6 @@ require("lazy").setup({
   },
 
   -- ── Dashboard ─────────────────────────────────────────────────────────────
-  -- ✅ NEU: Start screen yang rapi saat buka nvim tanpa file
   {
     "goolord/alpha-nvim",
     event = "VimEnter",
@@ -613,7 +616,6 @@ require("lazy").setup({
   },
 
 }, {
-  -- Lazy.nvim options
   performance = {
     rtp = {
       disabled_plugins = {
@@ -634,18 +636,18 @@ require("mason").setup({
 
 require("mason-lspconfig").setup({
   ensure_installed = {
-    "gopls",        -- Go
-    "pyright",      -- Python
-    "intelephense", -- PHP
-    "ts_ls",        -- TypeScript/JavaScript
-    "svelte",       -- Svelte
-    "tailwindcss",  -- Tailwind
-    "html",         -- HTML
-    "cssls",        -- CSS
-    "jsonls",       -- JSON            ✅ NEU
-    "yamlls",       -- YAML            ✅ NEU
-    "lua_ls",       -- Lua (untuk config nvim) ✅ NEU
-    "dockerls",     -- Dockerfile      ✅ NEU
+    "gopls",
+    "pyright",
+    "intelephense",
+    "ts_ls",
+    "svelte",
+    "tailwindcss",
+    "html",
+    "cssls",
+    "jsonls",
+    "yamlls",
+    "lua_ls",
+    "dockerls",
   },
   automatic_installation = true,
 })
@@ -664,9 +666,9 @@ local on_attach = function(client, bufnr)
   vim.keymap.set("n", "gt",  vim.lsp.buf.type_definition,  opts)
 
   -- Info
-  vim.keymap.set("n", "K",          vim.lsp.buf.hover,           opts)
-  vim.keymap.set("n", "<C-k>",      vim.lsp.buf.signature_help,  opts)
-  vim.keymap.set("i", "<C-k>",      vim.lsp.buf.signature_help,  opts)
+  vim.keymap.set("n", "K",     vim.lsp.buf.hover,           opts)
+  vim.keymap.set("n", "<C-k>", vim.lsp.buf.signature_help,  opts)
+  vim.keymap.set("i", "<C-k>", vim.lsp.buf.signature_help,  opts)
 
   -- Actions
   vim.keymap.set("n", "<leader>rn", vim.lsp.buf.rename,       opts)
@@ -679,12 +681,12 @@ local on_attach = function(client, bufnr)
   vim.keymap.set("n", "<leader>de", vim.diagnostic.open_float,  opts)
   vim.keymap.set("n", "<leader>dq", vim.diagnostic.setloclist,  opts)
 
-  -- Format (pakai conform kalau tersedia, fallback ke LSP)
+  -- Format
   vim.keymap.set("n", "<leader>cf", function()
     require("conform").format({ async = true, lsp_fallback = true })
   end, opts)
 
-  -- Highlight word under cursor via LSP (kalau server support)
+  -- Highlight word under cursor
   if client.server_capabilities.documentHighlightProvider then
     vim.api.nvim_create_autocmd({ "CursorHold", "CursorHoldI" }, {
       buffer = bufnr,
@@ -698,19 +700,23 @@ local on_attach = function(client, bufnr)
 end
 
 local servers = {
-  gopls        = {
+  gopls = {
     settings = {
       gopls = {
         analyses = { unusedparams = true },
         staticcheck = true,
         gofumpt = true,
+        -- ✅ NEU: Debounce diagnostic agar tidak flood saat ngetik
+        diagnosticsDelay = "500ms",
+        -- ✅ NEU: Paksa gopls refresh setelah save
+        diagnosticsTrigger = "Save",
       },
     },
   },
-  pyright      = {
+  pyright = {
     settings = {
       python = {
-        analysis = { typeCheckingMode = "basic" },  -- "off"/"basic"/"strict"
+        analysis = { typeCheckingMode = "basic" },
       },
     },
   },
@@ -722,7 +728,7 @@ local servers = {
   cssls        = {},
   jsonls       = {},
   yamlls       = {},
-  lua_ls       = {
+  lua_ls = {
     settings = {
       Lua = {
         workspace = { checkThirdParty = false },
@@ -730,7 +736,7 @@ local servers = {
       },
     },
   },
-  dockerls     = {},
+  dockerls = {},
 }
 
 for server, config in pairs(servers) do
@@ -739,13 +745,20 @@ for server, config in pairs(servers) do
   lspconfig[server].setup(config)
 end
 
--- Diagnostic display
+-- ==================== DIAGNOSTIC CONFIG ====================
+-- ✅ update_in_insert = true tapi hanya tampilkan ERROR (bukan Warning)
+--    supaya tidak berisik saat ngetik, tapi langsung tahu ada syntax error
 vim.diagnostic.config({
-  virtual_text = { prefix = "●", source = "if_many" },
-  signs        = true,
-  underline    = true,
-  update_in_insert = false,
-  severity_sort    = true,
+  virtual_text = {
+    prefix = "●",
+    source = "if_many",
+    -- ✅ Filter: saat insert mode hanya tampil Error, normal mode semua
+    severity = nil,  -- normal mode: semua severity
+  },
+  signs = true,
+  underline = true,
+  update_in_insert = true,   -- ✅ Aktif saat ngetik (real-time detection)
+  severity_sort = true,
   float = { border = "rounded", source = "always" },
 })
 
@@ -759,7 +772,6 @@ end
 local cmp     = require("cmp")
 local luasnip = require("luasnip")
 
--- Load friendly-snippets
 require("luasnip.loaders.from_vscode").lazy_load()
 
 cmp.setup({
@@ -769,6 +781,13 @@ cmp.setup({
   window = {
     completion    = cmp.config.window.bordered(),
     documentation = cmp.config.window.bordered(),
+  },
+  -- ✅ NEU: Performance — batasi berapa item di-render sekaligus
+  performance = {
+    debounce          = 60,   -- Delay sebelum trigger completion (ms)
+    throttle          = 30,   -- Throttle update list (ms)
+    fetching_timeout  = 500,  -- Timeout per source
+    max_view_entries  = 20,   -- Max item ditampilkan (hemat render CPU)
   },
   mapping = cmp.mapping.preset.insert({
     ["<C-Space>"] = cmp.mapping.complete(),
@@ -790,15 +809,14 @@ cmp.setup({
     end, { "i", "s" }),
   }),
   sources = cmp.config.sources({
-    { name = "nvim_lsp" },
-    { name = "luasnip" },
-    { name = "path" },
+    { name = "nvim_lsp",  priority = 1000 },
+    { name = "codeium",   priority = 900 },   -- ✅ NEU: Codeium AI source
+    { name = "luasnip",   priority = 750 },
+    { name = "path",      priority = 500 },
   }, {
-    { name = "buffer", keyword_length = 3 },
+    { name = "buffer", keyword_length = 3, priority = 250 },
   }),
 })
-
-
 
 -- ==================== KEYMAPS ====================
 
@@ -855,9 +873,9 @@ vim.keymap.set("n", "<leader>fk", tb.keymaps,                  { desc = "Keymaps
 vim.keymap.set("n", "<leader>ft", "<cmd>TodoTelescope<CR>",    { desc = "Find TODOs" })
 
 -- Find and Replace (Spectre)
-vim.keymap.set("n", "<leader>sr", function() require("spectre").open() end,                        { desc = "Open Spectre" })
+vim.keymap.set("n", "<leader>sr", function() require("spectre").open() end,                           { desc = "Open Spectre" })
 vim.keymap.set("n", "<leader>sw", function() require("spectre").open_visual({ select_word=true }) end, { desc = "Search Word" })
-vim.keymap.set("v", "<leader>sw", function() require("spectre").open_visual() end,                 { desc = "Search Selection" })
+vim.keymap.set("v", "<leader>sw", function() require("spectre").open_visual() end,                    { desc = "Search Selection" })
 vim.keymap.set("n", "<leader>sf", function() require("spectre").open_file_search({ select_word=true }) end, { desc = "Search in File" })
 
 -- Visual mode
@@ -880,15 +898,25 @@ vim.keymap.set("n", "N",     "Nzzzv")
 vim.keymap.set("n", "G",     "Gzz")
 
 -- Search
-vim.keymap.set("n", "<leader>/",  "/",                                     { desc = "Search" })
-vim.keymap.set("n", "<leader>s",  ":%s/",                                  { desc = "Replace in File" })
-vim.keymap.set("v", "<leader>s",  ":s/",                                   { desc = "Replace in Selection" })
-vim.keymap.set("n", "<leader>S",  ":%s/<C-r><C-w>//g<Left><Left>",         { desc = "Replace Word Under Cursor" })
+vim.keymap.set("n", "<leader>/",  "/",                                      { desc = "Search" })
+vim.keymap.set("n", "<leader>s",  ":%s/",                                   { desc = "Replace in File" })
+vim.keymap.set("v", "<leader>s",  ":s/",                                    { desc = "Replace in Selection" })
+vim.keymap.set("n", "<leader>S",  ":%s/<C-r><C-w>//g<Left><Left>",          { desc = "Replace Word Under Cursor" })
 vim.keymap.set("n", "*",          "*zz")
 vim.keymap.set("n", "#",          "#zz")
 
 -- LazyGit
 vim.keymap.set("n", "<leader>gg", "<cmd>LazyGit<CR>", { desc = "LazyGit" })
+
+-- ✅ NEU: Codeium AI keymaps
+-- Jalankan :Codeium Auth pertama kali untuk login
+vim.keymap.set("n", "<leader>aa", "<cmd>Codeium Auth<CR>",    { desc = "Codeium Auth / Login" })
+vim.keymap.set("n", "<leader>at", "<cmd>Codeium Toggle<CR>",  { desc = "Codeium Toggle On/Off" })
+-- Accept/dismiss ghost text saat insert mode
+vim.keymap.set("i", "<C-g>",  function() return vim.fn["codeium#Accept"]() end,       { expr = true, desc = "Codeium Accept" })
+vim.keymap.set("i", "<C-x>",  function() return vim.fn["codeium#Clear"]() end,        { expr = true, desc = "Codeium Dismiss" })
+vim.keymap.set("i", "<M-]>",  function() return vim.fn["codeium#CycleCompletions"](1) end,  { expr = true, desc = "Codeium Next" })
+vim.keymap.set("i", "<M-[>",  function() return vim.fn["codeium#CycleCompletions"](-1) end, { expr = true, desc = "Codeium Prev" })
 
 -- ==================== AUTOCOMMANDS ====================
 
@@ -945,4 +973,54 @@ vim.api.nvim_create_autocmd("BufWritePre", {
   end,
 })
 
-print("⚡ Neovim Ready! (12GB RAM Build)")
+-- ✅ NEU: Fix Go stale diagnostics — flush & re-request setiap BufWritePost
+--    Ini mengatasi masalah "kode sudah benar tapi error lama tidak hilang"
+vim.api.nvim_create_autocmd("BufWritePost", {
+  pattern = "*.go",
+  callback = function()
+    -- Kecil delay agar gopls selesai index dulu baru kita reset
+    vim.defer_fn(function()
+      local bufnr = vim.api.nvim_get_current_buf()
+      -- Reset diagnostic lama di buffer ini
+      vim.diagnostic.reset(nil, bufnr)
+      -- Minta LSP kirim ulang diagnostic terbaru
+      for _, client in ipairs(vim.lsp.get_active_clients({ bufnr = bufnr })) do
+        if client.name == "gopls" then
+          -- Trigger diagnostic refresh via didSave notification
+          vim.lsp.buf_notify(bufnr, "textDocument/didSave", {
+            textDocument = { uri = vim.uri_from_bufnr(bufnr) },
+          })
+        end
+      end
+    end, 300)  -- 300ms setelah save, gopls seharusnya sudah selesai parse
+  end,
+})
+
+-- ✅ NEU: Saat masuk insert mode, sembunyikan Warning/Hint
+--    Biarkan Error saja yang tampil supaya tidak noisy
+vim.api.nvim_create_autocmd("InsertEnter", {
+  callback = function()
+    vim.diagnostic.config({
+      virtual_text = {
+        prefix = "●",
+        source = "if_many",
+        severity = { min = vim.diagnostic.severity.ERROR },
+      },
+    })
+  end,
+})
+
+-- ✅ NEU: Saat keluar insert mode, kembalikan semua severity
+vim.api.nvim_create_autocmd("InsertLeave", {
+  callback = function()
+    vim.diagnostic.config({
+      virtual_text = {
+        prefix = "●",
+        source = "if_many",
+        severity = nil,  -- semua severity tampil lagi
+      },
+    })
+  end,
+})
+
+print("⚡ Neovim Ready! (12GB RAM | Codeium AI | Go Fix)")
