@@ -1,204 +1,76 @@
-```bash
 #!/bin/bash
+# =====================================================
+# Arch Linux — Sway + Tuigreet Desktop Installer
+# =====================================================
+# Tanggung jawab script ini:
+#   - Core Wayland/Sway packages
+#   - greetd + tuigreet
+#   - PipeWire
+#   - Browser pilihan
+#   - Copy dotfiles
+#   - FiraCode Nerd Font
+#
+# Development tools (Go, Node, PHP, dll) TIDAK termasuk.
+# Kelola secara manual sesuai kebutuhan project.
+# =====================================================
 
 set -Eeuo pipefail
 
+# -----------------------------------------------------
+# Global variables
+# -----------------------------------------------------
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 LOG_DIR="$HOME/.local/share/install-logs"
 LOG_FILE="$LOG_DIR/sway-install-$(date +%Y%m%d-%H%M%S).log"
 
 mkdir -p "$LOG_DIR"
 
-RED='\033[0;31m'
-YELLOW='\033[1;33m'
-GREEN='\033[0;32m'
-BLUE='\033[0;34m'
-NC='\033[0m'
+# -----------------------------------------------------
+# Logging
+# -----------------------------------------------------
+log()   { echo "[$(date '+%F %T')] [INFO]  $*" | tee -a "$LOG_FILE"; }
+warn()  { echo "[$(date '+%F %T')] [WARN]  $*" | tee -a "$LOG_FILE"; }
+error() { echo "[$(date '+%F %T')] [ERROR] $*" | tee -a "$LOG_FILE" >&2; }
 
-log() {
-    printf "[%s] [INFO]  %s\n" "$(date '+%F %T')" "$*" | tee -a "$LOG_FILE"
-    printf "${GREEN}▶ %s${NC}\n" "$*"
-}
+trap 'error "Script gagal di baris $LINENO. Cek log: $LOG_FILE"' ERR
 
-warn() {
-    printf "[%s] [WARN]  %s\n" "$(date '+%F %T')" "$*" | tee -a "$LOG_FILE"
-    printf "${YELLOW}⚠ %s${NC}\n" "$*"
-}
-
-error() {
-    printf "[%s] [ERROR] %s\n" "$(date '+%F %T')" "$*" | tee -a "$LOG_FILE" >&2
-    printf "${RED}✖ %s${NC}\n" "$*" >&2
-}
-
-step() {
-    echo
-    printf "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}\n"
-    printf "${BLUE} %s${NC}\n" "$*"
-    printf "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}\n"
-    echo
-}
-
-trap 'error "Installation failed at line $LINENO. Check log: $LOG_FILE"; exit 1' ERR
-
-INSTALL_START=$(date +%s)
-
-if [[ $EUID -eq 0 ]]; then
-    echo "Do not run this script as root."
-    exit 1
-fi
-
-if ! command -v pacman &>/dev/null; then
-    echo "This installer must be run on Arch Linux."
-    exit 1
-fi
-
-check_internet() {
-    log "Checking internet connectivity..."
-    if ping -c 1 archlinux.org &>/dev/null; then
-        log "Internet connection OK"
-    else
-        error "Internet connection required"
-        exit 1
-    fi
-}
-
-fix_pacman_lock() {
-    if [[ -f /var/lib/pacman/db.lck ]]; then
-        warn "Pacman lock detected, removing..."
-        sudo rm -f /var/lib/pacman/db.lck
-    fi
-}
-
-enable_parallel_downloads() {
-    if ! grep -q "ParallelDownloads" /etc/pacman.conf; then
-        log "Enabling pacman parallel downloads"
-        sudo sed -i 's/^#ParallelDownloads/ParallelDownloads/' /etc/pacman.conf
-    fi
-}
-
-optimize_mirrors() {
-    log "Optimizing pacman mirrors..."
-    sudo pacman -S --needed --noconfirm reflector
-    sudo reflector \
-        --country Singapore,Japan,South\ Korea \
-        --latest 10 \
-        --protocol https \
-        --sort rate \
-        --save /etc/pacman.d/mirrorlist
-}
-
-require_cmd() {
-    for cmd in "$@"; do
-        if ! command -v "$cmd" &>/dev/null; then
-            error "Missing required command: $cmd"
-            exit 1
-        fi
-    done
-}
-
-retry() {
-    local attempts=$1
-    shift
-    local count=0
-
-    until "$@"; do
-        count=$((count+1))
-        if (( count >= attempts )); then
-            error "Command failed after $attempts attempts: $*"
-            return 1
-        fi
-        warn "Retry $count/$attempts..."
-        sleep 2
-    done
-}
-
-backup_config() {
-    BACKUP_DIR="$HOME/.config-backup-$(date +%Y%m%d-%H%M%S)"
-    mkdir -p "$BACKUP_DIR"
-
-    for dir in sway swaylock waybar wlogout wofi kitty mako nvim qutebrowser; do
-        if [[ -d "$HOME/.config/$dir" ]]; then
-            log "Backing up config: $dir"
-            mv "$HOME/.config/$dir" "$BACKUP_DIR/"
-        fi
-    done
-
-    log "Backup directory: $BACKUP_DIR"
-}
-
-cleanup_aur() {
-    rm -rf /tmp/paru-* 2>/dev/null || true
-}
-
-post_install_check() {
-    log "Running post install verification"
-    for cmd in sway waybar kitty; do
-        if command -v "$cmd" &>/dev/null; then
-            log "$cmd installed"
-        else
-            warn "$cmd missing"
-        fi
-    done
-}
-
-system_summary() {
-    echo
-    echo "System summary:"
-    echo "---------------------------"
-    echo "User: $USER"
-    echo "Shell: $SHELL"
-    echo "Kernel: $(uname -r)"
-    echo "CPU: $(lscpu | grep 'Model name' | cut -d ':' -f2 | xargs)"
-    echo "Memory: $(free -h | awk '/Mem:/ {print $2}')"
-    echo "---------------------------"
-}
-
-cleanup() {
-    cleanup_aur
-}
-
-trap cleanup EXIT
-
-log "Starting Sway desktop environment installation (Arch Linux)"
+log "Memulai instalasi Sway desktop environment (Arch Linux)"
 log "Script dir : $SCRIPT_DIR"
 log "Log file   : $LOG_FILE"
 
-check_internet
-fix_pacman_lock
-enable_parallel_downloads
-optimize_mirrors
-require_cmd git wget unzip
-
-log "Refreshing pacman keyring..."
-sudo pacman -Sy --noconfirm archlinux-keyring
-
+# -----------------------------------------------------
+# Pilihan user
+# -----------------------------------------------------
 echo
 echo "========================================"
 echo "  Sway Desktop Installer — Arch Linux"
 echo "========================================"
 echo
 
-log "Selecting browser..."
-echo "Choose browser:"
+log "Memilih browser..."
+echo "Pilih browser:"
 select BROWSER in "qutebrowser" "brave"; do
     [[ "$BROWSER" == "qutebrowser" || "$BROWSER" == "brave" ]] && break
-    echo "Invalid option, try again."
+    echo "Pilihan tidak valid, coba lagi."
 done
-log "Browser selected: $BROWSER"
+log "Browser dipilih: $BROWSER"
 
 echo
-log "Selecting Neovim profile..."
-echo "Choose Neovim config:"
+log "Memilih Neovim profile..."
+echo "Pilih Neovim config:"
 select NVIM_PROFILE in "max" "lite"; do
     [[ "$NVIM_PROFILE" == "max" || "$NVIM_PROFILE" == "lite" ]] && break
-    echo "Invalid option, try again."
+    echo "Pilihan tidak valid, coba lagi."
 done
-log "Neovim profile selected: $NVIM_PROFILE"
+log "Neovim profile dipilih: $NVIM_PROFILE"
 
 echo
-log "Configuration selected — Browser: $BROWSER | Nvim: $NVIM_PROFILE"
+log "Konfigurasi dipilih — Browser: $BROWSER | Nvim: $NVIM_PROFILE"
 
-log "Validating dotfiles directory..."
+# -----------------------------------------------------
+# Validasi dotfiles tersedia
+# -----------------------------------------------------
+log "Memvalidasi direktori dotfiles..."
 
 REQUIRED_DIRS=(sway swaylock waybar wlogout wofi kitty mako)
 REQUIRED_DIRS+=("nvim/$NVIM_PROFILE")
@@ -206,22 +78,23 @@ REQUIRED_DIRS+=("nvim/$NVIM_PROFILE")
 
 for dir in "${REQUIRED_DIRS[@]}"; do
     if [[ ! -d "$SCRIPT_DIR/$dir" ]]; then
-        error "Dotfiles directory not found: $SCRIPT_DIR/$dir"
+        error "Direktori dotfiles tidak ditemukan: $SCRIPT_DIR/$dir"
         exit 1
     fi
 done
 
 GREETD_CONFIG="$SCRIPT_DIR/greetd/config.toml"
 if [[ ! -f "$GREETD_CONFIG" ]]; then
-    error "greetd config file not found: $GREETD_CONFIG"
+    error "File greetd config tidak ditemukan: $GREETD_CONFIG"
     exit 1
 fi
 
-log "Dotfiles validation OK"
+log "Validasi dotfiles OK"
 
-backup_config
-
-log "Installing core Sway & Wayland packages..."
+# -----------------------------------------------------
+# Core packages (pacman)
+# -----------------------------------------------------
+log "Menginstall core Sway & Wayland packages..."
 
 sudo pacman -S --needed --noconfirm \
     sway swaylock swayidle swaybg \
@@ -239,10 +112,13 @@ sudo pacman -S --needed --noconfirm \
     ttf-font-awesome \
     git
 
-log "Core packages installed"
+log "Core packages terinstall"
 
+# -----------------------------------------------------
+# Install paru (AUR helper)
+# -----------------------------------------------------
 if ! command -v paru &>/dev/null; then
-    log "paru not found, installing..."
+    log "paru tidak ditemukan, menginstall..."
 
     sudo pacman -S --needed --noconfirm base-devel rustup
     rustup default stable
@@ -254,45 +130,58 @@ if ! command -v paru &>/dev/null; then
     popd >/dev/null
     rm -rf "$PARU_TMP"
 
-    log "paru successfully installed"
+    log "paru berhasil diinstall"
 else
-    log "paru already available, skipping"
+    log "paru sudah tersedia, melewati"
 fi
 
-log "Installing greetd + tuigreet + wlogout..."
+# -----------------------------------------------------
+# greetd + tuigreet + wlogout (AUR)
+# -----------------------------------------------------
+log "Menginstall greetd + tuigreet + wlogout..."
 
 paru -S --needed --noconfirm greetd greetd-tuigreet wlogout
 
 sudo systemctl enable greetd.service
 sudo systemctl set-default graphical.target
 
-log "Installing greetd configuration..."
+log "Menginstall konfigurasi greetd..."
 sudo install -Dm644 "$GREETD_CONFIG" /etc/greetd/config.toml
 
-log "greetd ready"
+log "greetd siap"
 
-log "Enabling PipeWire user services..."
+# -----------------------------------------------------
+# PipeWire (user services)
+# -----------------------------------------------------
+log "Mengaktifkan PipeWire user services..."
 
 for svc in pipewire.service pipewire-pulse.service wireplumber.service; do
     systemctl --user enable "$svc" 2>/dev/null \
         && log "Enabled: $svc" \
-        || warn "$svc already active or not found, skipped"
+        || warn "$svc sudah aktif atau tidak ditemukan, dilewati"
 done
 
+# -----------------------------------------------------
+# Browser
+# -----------------------------------------------------
 if [[ "$BROWSER" == "brave" ]]; then
-    log "Installing Brave browser..."
+    log "Menginstall Brave browser..."
     paru -S --needed --noconfirm brave-bin
 else
-    log "Installing qutebrowser..."
+    log "Menginstall qutebrowser..."
     sudo pacman -S --needed --noconfirm qutebrowser
 fi
 
-log "Browser $BROWSER installed"
+log "Browser $BROWSER terinstall"
 
-log "Installing user configuration files..."
+# -----------------------------------------------------
+# Copy dotfiles / user config
+# -----------------------------------------------------
+log "Menginstall user configuration files..."
 
 mkdir -p "$HOME/.config"
 
+# Sway dan config lainnya
 for dir in sway swaylock waybar wlogout wofi kitty mako; do
     SRC="$SCRIPT_DIR/$dir"
     DST="$HOME/.config/$dir"
@@ -301,28 +190,34 @@ for dir in sway swaylock waybar wlogout wofi kitty mako; do
     cp -r "$SRC" "$DST"
 done
 
+# Neovim — sesuai profile
 NVIM_SRC="$SCRIPT_DIR/nvim/$NVIM_PROFILE"
 NVIM_DST="$HOME/.config/nvim"
 log "Copying nvim config (profile: $NVIM_PROFILE)"
 rm -rf "$NVIM_DST"
 cp -r "$NVIM_SRC" "$NVIM_DST"
 
+# Qutebrowser — hanya kalau dipilih
 if [[ "$BROWSER" == "qutebrowser" ]]; then
     log "Copying config: qutebrowser"
     rm -rf "$HOME/.config/qutebrowser"
     cp -r "$SCRIPT_DIR/qutebrowser" "$HOME/.config/qutebrowser"
 fi
 
+# Pastikan semua sway scripts executable
 if compgen -G "$HOME/.config/sway/scripts/*.sh" &>/dev/null; then
     chmod +x "$HOME/.config/sway/scripts/"*.sh
-    log "Sway scripts set executable"
+    log "Scripts sway diberi permission executable"
 else
-    warn "No sway scripts found"
+    warn "Tidak ada .sh scripts di sway/scripts/, dilewati"
 fi
 
-log "All dotfiles copied"
+log "Semua dotfiles berhasil di-copy"
 
-log "Installing FiraCode Nerd Font..."
+# -----------------------------------------------------
+# FiraCode Nerd Font
+# -----------------------------------------------------
+log "Menginstall FiraCode Nerd Font..."
 
 FONT_DIR="$HOME/.local/share/fonts"
 FONT_FILE="$FONT_DIR/FiraCodeNerdFont-Regular.ttf"
@@ -338,30 +233,24 @@ if [[ ! -f "$FONT_FILE" ]]; then
     unzip -o "$FONT_TMP/FiraCode.zip" -d "$FONT_DIR"
     rm -rf "$FONT_TMP"
     fc-cache -f
-    log "FiraCode Nerd Font installed"
+    log "FiraCode Nerd Font $FIRA_VERSION terinstall"
 else
-    warn "FiraCode Nerd Font already exists"
+    warn "FiraCode Nerd Font sudah ada, dilewati"
 fi
 
-post_install_check
-
-INSTALL_END=$(date +%s)
-DURATION=$((INSTALL_END - INSTALL_START))
-
+# -----------------------------------------------------
+# Selesai
+# -----------------------------------------------------
 echo
 echo "========================================"
-echo "  Installation complete!"
+echo "  ✅  Instalasi selesai!"
 echo "========================================"
-echo "  Browser : $BROWSER"
-echo "  Nvim    : $NVIM_PROFILE"
-echo "  Log     : $LOG_FILE"
-echo "  Time    : ${DURATION}s"
+echo "  Browser   : $BROWSER"
+echo "  Nvim       : $NVIM_PROFILE"
+echo "  Log        : $LOG_FILE"
 echo "========================================"
-echo "  Reboot to enter tuigreet."
+echo "  Reboot untuk masuk ke tuigreet."
 echo "========================================"
 echo
 
-system_summary
-
-log "Installation finished — Browser: $BROWSER | Nvim: $NVIM_PROFILE"
-```
+log "Instalasi selesai — Browser: $BROWSER | Nvim: $NVIM_PROFILE"
