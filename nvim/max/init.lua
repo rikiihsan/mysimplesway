@@ -1,27 +1,18 @@
--- ==================== NEOVIM CONFIG — 12GB RAM / Pentium Gold G3260 2c2t ====================
--- RAM: Bebas pakai plugin lebih banyak
--- CPU: Dual core Haswell 3.3GHz — hindari background thread berat
--- Target: Fullstack Dev (Go, PHP, Python + React, Svelte)
--- Changelog:
---   + Codeium AI autocomplete (ghost text + cmp source)
---   + nvim-cmp debounce & optimasi
---   + Go LSP false positive fix (stale diagnostics)
---   + Deteksi error saat ngetik (insert mode, Error only)
---   + Responsivitas: updatetime 100, hapus lazyredraw, LSP debounce
 
--- ==================== LEADER KEY ====================
+---
+
+# init.lua (Clean Version - No Comments)
+
+```lua
 vim.g.mapleader = " "
 vim.g.maplocalleader = " "
 
--- ==================== PERFORMANCE SETTINGS ====================
-vim.opt.updatetime = 100         -- ✅ Turun dari 200 → 100 (lebih responsif CursorHold)
+vim.opt.updatetime = 100
 vim.opt.timeoutlen = 400
--- ❌ lazyredraw DIHAPUS — di Neovim modern justru bikin input lag & glitch
 vim.opt.ttyfast = true
 vim.opt.synmaxcol = 300
 vim.opt.regexpengine = 1
 
--- ==================== UI SETTINGS ====================
 vim.opt.number = true
 vim.opt.relativenumber = true
 vim.opt.signcolumn = "yes"
@@ -32,8 +23,9 @@ vim.opt.colorcolumn = "80,120"
 vim.opt.cmdheight = 1
 vim.opt.showmode = false
 vim.opt.termguicolors = true
+vim.opt.showtabline = 0
+vim.opt.pumheight = 15
 
--- ==================== EDITING ====================
 vim.opt.expandtab = true
 vim.opt.shiftwidth = 4
 vim.opt.tabstop = 4
@@ -42,13 +34,11 @@ vim.opt.smartindent = true
 vim.opt.wrap = false
 vim.opt.linebreak = true
 
--- ==================== SEARCH ====================
 vim.opt.ignorecase = true
 vim.opt.smartcase = true
 vim.opt.hlsearch = true
 vim.opt.incsearch = true
 
--- ==================== SYSTEM ====================
 vim.opt.clipboard = "unnamedplus"
 vim.opt.undofile = true
 vim.opt.undolevels = 10000
@@ -56,20 +46,27 @@ vim.opt.swapfile = false
 vim.opt.backup = false
 vim.opt.sessionoptions = "blank,buffers,curdir,folds,help,tabpages,winsize,winpos,terminal,localoptions"
 
--- ==================== SPLITS ====================
 vim.opt.splitright = true
 vim.opt.splitbelow = true
 
--- ==================== COMPLETION ====================
 vim.opt.completeopt = "menu,menuone,noselect"
-vim.opt.pumheight = 15
 
--- ==================== FOLDING ====================
-vim.opt.foldmethod = "expr"
-vim.opt.foldexpr = "nvim_treesitter#foldexpr()"
+vim.opt.foldmethod = "indent"
 vim.opt.foldlevel = 99
 
--- ==================== PLUGIN MANAGER (lazy.nvim) ====================
+vim.api.nvim_create_autocmd("BufReadPost", {
+  desc = "Aktifkan Treesitter folding setelah buffer siap",
+  callback = function(args)
+    local ok = pcall(function()
+      vim.treesitter.get_parser(args.buf)
+    end)
+    if ok then
+      vim.opt_local.foldmethod = "expr"
+      vim.opt_local.foldexpr = "nvim_treesitter#foldexpr()"
+    end
+  end,
+})
+
 local lazypath = vim.fn.stdpath("data") .. "/lazy/lazy.nvim"
 if not vim.loop.fs_stat(lazypath) then
   vim.fn.system({
@@ -80,10 +77,8 @@ if not vim.loop.fs_stat(lazypath) then
 end
 vim.opt.rtp:prepend(lazypath)
 
--- ==================== PLUGINS ====================
 require("lazy").setup({
 
-  -- ── LSP Core ──────────────────────────────────────────────────────────────
   {
     "neovim/nvim-lspconfig",
     event = { "BufReadPre", "BufNewFile" },
@@ -95,7 +90,6 @@ require("lazy").setup({
     },
   },
 
-  -- ── Formatter ─────────────────────────────────────────────────────────────
   {
     "stevearc/conform.nvim",
     event = { "BufWritePre" },
@@ -103,18 +97,18 @@ require("lazy").setup({
     config = function()
       require("conform").setup({
         formatters_by_ft = {
-          go         = { "gofmt", "goimports" },
-          python     = { "black", "isort" },
-          php        = { "php_cs_fixer" },
+          go = { "gofmt", "goimports" },
+          python = { "black", "isort" },
+          php = { "php_cs_fixer" },
           javascript = { "prettier" },
           typescript = { "prettier" },
-          javascriptreact   = { "prettier" },
-          typescriptreact   = { "prettier" },
-          svelte     = { "prettier" },
-          html       = { "prettier" },
-          css        = { "prettier" },
-          json       = { "prettier" },
-          markdown   = { "prettier" },
+          javascriptreact = { "prettier" },
+          typescriptreact = { "prettier" },
+          svelte = { "prettier" },
+          html = { "prettier" },
+          css = { "prettier" },
+          json = { "prettier" },
+          markdown = { "prettier" },
         },
         format_on_save = {
           timeout_ms = 1000,
@@ -124,8 +118,6 @@ require("lazy").setup({
     end,
   },
 
-  -- ── AI Autocomplete: Codeium ──────────────────────────────────────────────
-  -- ✅ NEU: Ghost text AI completion — :Codeium Auth untuk login pertama kali
   {
     "Exafunction/codeium.nvim",
     event = "InsertEnter",
@@ -135,14 +127,14 @@ require("lazy").setup({
     },
     config = function()
       require("codeium").setup({
-        -- Virtual text (ghost text) mode
-        enable_chat = false,   -- Matikan chat UI, hemat CPU
-        -- Codeium akan otomatis terhubung ke akun lewat :Codeium Auth
+        enable_chat = false,
+        virtual_text = {
+          enabled = true,
+        },
       })
     end,
   },
 
-  -- ── Autocompletion ────────────────────────────────────────────────────────
   {
     "hrsh7th/nvim-cmp",
     event = "InsertEnter",
@@ -153,12 +145,10 @@ require("lazy").setup({
       "L3MON4D3/LuaSnip",
       "saadparwaiz1/cmp_luasnip",
       "rafamadriz/friendly-snippets",
-      -- ✅ Codeium sebagai cmp source (muncul di dropdown bersama LSP)
       "Exafunction/codeium.nvim",
     },
   },
 
-  -- ── Fuzzy Finder ──────────────────────────────────────────────────────────
   {
     "nvim-telescope/telescope.nvim",
     cmd = "Telescope",
@@ -194,7 +184,6 @@ require("lazy").setup({
     end,
   },
 
-  -- ── File Explorer ─────────────────────────────────────────────────────────
   {
     "nvim-tree/nvim-tree.lua",
     cmd = { "NvimTreeToggle", "NvimTreeFocus" },
@@ -234,7 +223,6 @@ require("lazy").setup({
     end,
   },
 
-  -- ── Treesitter ────────────────────────────────────────────────────────────
   {
     "nvim-treesitter/nvim-treesitter",
     build = ":TSUpdate",
@@ -251,8 +239,7 @@ require("lazy").setup({
           "json", "jsonc", "yaml", "toml",
           "markdown", "markdown_inline",
           "bash", "lua", "vim", "vimdoc",
-          "sql",
-          "dockerfile",
+          "sql", "dockerfile",
           "gitignore", "gitcommit",
         },
         sync_install = false,
@@ -293,7 +280,6 @@ require("lazy").setup({
     end,
   },
 
-  -- ── Git ───────────────────────────────────────────────────────────────────
   {
     "lewis6991/gitsigns.nvim",
     event = { "BufReadPre", "BufNewFile" },
@@ -333,14 +319,12 @@ require("lazy").setup({
     },
   },
 
-  -- ── Comment ───────────────────────────────────────────────────────────────
   {
     "numToStr/Comment.nvim",
     keys = { "gcc", "gbc", { "gc", mode = "v" }, { "gb", mode = "v" } },
     config = true,
   },
 
-  -- ── Auto pairs & tags ─────────────────────────────────────────────────────
   {
     "windwp/nvim-autopairs",
     event = "InsertEnter",
@@ -360,20 +344,25 @@ require("lazy").setup({
 
   {
     "windwp/nvim-ts-autotag",
-    ft = { "html", "javascript", "typescript", "javascriptreact",
-           "typescriptreact", "svelte", "xml" },
+    ft = {
+      "html", "javascript", "typescript",
+      "javascriptreact", "typescriptreact", "svelte", "xml",
+    },
     config = true,
   },
 
-  -- ── Colorizer ─────────────────────────────────────────────────────────────
   {
     "NvChad/nvim-colorizer.lua",
-    ft = { "css", "scss", "html", "javascript", "typescript",
-           "typescriptreact", "javascriptreact", "svelte" },
+    ft = {
+      "css", "scss", "html", "javascript", "typescript",
+      "typescriptreact", "javascriptreact", "svelte",
+    },
     config = function()
       require("colorizer").setup({
-        filetypes = { "css", "scss", "html", "javascript", "typescript",
-                      "typescriptreact", "javascriptreact", "svelte" },
+        filetypes = {
+          "css", "scss", "html", "javascript", "typescript",
+          "typescriptreact", "javascriptreact", "svelte",
+        },
         user_default_options = {
           tailwind = true,
           mode = "background",
@@ -384,12 +373,24 @@ require("lazy").setup({
     end,
   },
 
-  -- ── Find & Replace Across Project ─────────────────────────────────────────
   {
     "nvim-pack/nvim-spectre",
     cmd = "Spectre",
     dependencies = { "nvim-lua/plenary.nvim" },
     config = function()
+      local missing = {}
+      if vim.fn.executable("rg") == 0 then table.insert(missing, "ripgrep (rg)") end
+      if vim.fn.executable("sed") == 0 then table.insert(missing, "sed") end
+
+      if #missing > 0 then
+        vim.notify(
+          "nvim-spectre: binary tidak ditemukan -> " .. table.concat(missing, ", "),
+          vim.log.levels.WARN,
+          { title = "Spectre" }
+        )
+        return
+      end
+
       require("spectre").setup({
         is_insert_mode = true,
         find_engine = {
@@ -397,25 +398,26 @@ require("lazy").setup({
             cmd = "rg",
             args = {
               "--color=never", "--no-heading", "--with-filename",
-              "--line-number", "--column", "--iglob", "!.git",
-              "--iglob", "!node_modules", "--iglob", "!vendor",
+              "--line-number", "--column",
+              "--iglob", "!.git",
+              "--iglob", "!node_modules",
+              "--iglob", "!vendor",
             },
             options = {
               ["ignore-case"] = { value = "--ignore-case", icon = "[I]", desc = "ignore case" },
-              ["hidden"]      = { value = "--hidden", icon = "[H]", desc = "hidden file" },
+              ["hidden"] = { value = "--hidden", icon = "[H]", desc = "hidden file" },
             },
           },
         },
         replace_engine = { ["sed"] = { cmd = "sed", args = nil } },
         default = {
-          find    = { cmd = "rg", options = { "ignore-case" } },
+          find = { cmd = "rg", options = { "ignore-case" } },
           replace = { cmd = "sed" },
         },
       })
     end,
   },
 
-  -- ── Statusline ────────────────────────────────────────────────────────────
   {
     "nvim-lualine/lualine.nvim",
     event = "VeryLazy",
@@ -425,7 +427,7 @@ require("lazy").setup({
         options = {
           theme = "catppuccin",
           component_separators = { left = "", right = "" },
-          section_separators   = { left = "", right = "" },
+          section_separators = { left = "", right = "" },
           globalstatus = true,
         },
         sections = {
@@ -441,33 +443,10 @@ require("lazy").setup({
   },
 
   {
-    "akinsho/bufferline.nvim",
-    event = "VeryLazy",
-    dependencies = { "nvim-tree/nvim-web-devicons" },
-    config = function()
-      require("bufferline").setup({
-        options = {
-          mode = "buffers",
-          diagnostics = "nvim_lsp",
-          show_buffer_close_icons = true,
-          show_close_icon = false,
-          separator_style = "slant",
-          offsets = {
-            { filetype = "NvimTree", text = "File Explorer", separator = true },
-          },
-        },
-      })
-    end,
-  },
-
-  -- ── Which Key ─────────────────────────────────────────────────────────────
-  {
     "folke/which-key.nvim",
     event = "VeryLazy",
     config = function()
-      require("which-key").setup({
-        delay = 500,
-      })
+      require("which-key").setup({ delay = 500 })
       require("which-key").add({
         { "<leader>f", group = "Find (Telescope)" },
         { "<leader>g", group = "Git" },
@@ -476,12 +455,12 @@ require("lazy").setup({
         { "<leader>b", group = "Buffer" },
         { "<leader>c", group = "Code (LSP)" },
         { "<leader>d", group = "Diagnostics" },
-        { "<leader>a", group = "AI (Codeium)" },  -- ✅ NEU
+        { "<leader>a", group = "AI (Codeium)" },
+        { "<leader>w", group = "Window/Split" },
       })
     end,
   },
 
-  -- ── Indent Guide ──────────────────────────────────────────────────────────
   {
     "lukas-reineke/indent-blankline.nvim",
     event = { "BufReadPost", "BufNewFile" },
@@ -489,7 +468,7 @@ require("lazy").setup({
     config = function()
       require("ibl").setup({
         indent = { char = "│" },
-        scope  = { enabled = true, show_start = false },
+        scope = { enabled = true, show_start = false },
         exclude = {
           filetypes = { "help", "NvimTree", "lazy", "mason", "TelescopePrompt" },
         },
@@ -497,7 +476,6 @@ require("lazy").setup({
     end,
   },
 
-  -- ── Todo Comments ─────────────────────────────────────────────────────────
   {
     "folke/todo-comments.nvim",
     event = { "BufReadPost", "BufNewFile" },
@@ -506,53 +484,49 @@ require("lazy").setup({
       require("todo-comments").setup({
         signs = true,
         keywords = {
-          FIX  = { icon = " ", color = "error",   alt = { "FIXME", "BUG", "FIXIT", "ISSUE" } },
-          TODO = { icon = " ", color = "info" },
-          HACK = { icon = " ", color = "warning" },
-          WARN = { icon = " ", color = "warning", alt = { "WARNING", "XXX" } },
-          NOTE = { icon = " ", color = "hint",    alt = { "INFO" } },
-          PERF = { icon = " ", color = "default", alt = { "OPTIM", "PERFORMANCE", "OPTIMIZE" } },
+          FIX = { icon = "", color = "error", alt = { "FIXME", "BUG", "FIXIT", "ISSUE" } },
+          TODO = { icon = "", color = "info" },
+          HACK = { icon = "", color = "warning" },
+          WARN = { icon = "", color = "warning", alt = { "WARNING", "XXX" } },
+          NOTE = { icon = "", color = "hint", alt = { "INFO" } },
+          PERF = { icon = "", color = "default", alt = { "OPTIM", "PERFORMANCE", "OPTIMIZE" } },
         },
       })
     end,
   },
 
-  -- ── Flash ─────────────────────────────────────────────────────────────────
   {
     "folke/flash.nvim",
     event = "VeryLazy",
     config = true,
     keys = {
-      { "s",     mode = { "n", "x", "o" }, function() require("flash").jump() end,        desc = "Flash Jump" },
-      { "S",     mode = { "n", "x", "o" }, function() require("flash").treesitter() end,  desc = "Flash Treesitter" },
-      { "r",     mode = "o",               function() require("flash").remote() end,       desc = "Remote Flash" },
-      { "<C-s>", mode = { "c" },           function() require("flash").toggle() end,       desc = "Toggle Flash Search" },
+      { "s", mode = { "n", "x", "o" }, function() require("flash").jump() end, desc = "Flash Jump" },
+      { "S", mode = { "n", "x", "o" }, function() require("flash").treesitter() end, desc = "Flash Treesitter" },
+      { "r", mode = "o", function() require("flash").remote() end, desc = "Remote Flash" },
+      { "<C-s>", mode = { "c" }, function() require("flash").toggle() end, desc = "Toggle Flash Search" },
     },
   },
 
-  -- ── Surround ──────────────────────────────────────────────────────────────
   {
     "kylechui/nvim-surround",
     event = "VeryLazy",
     config = true,
   },
 
-  -- ── Trouble ───────────────────────────────────────────────────────────────
   {
     "folke/trouble.nvim",
     cmd = "Trouble",
     dependencies = { "nvim-tree/nvim-web-devicons" },
     config = true,
     keys = {
-      { "<leader>xx", "<cmd>Trouble diagnostics toggle<CR>",                        desc = "Diagnostics (Trouble)" },
-      { "<leader>xb", "<cmd>Trouble diagnostics toggle filter.buf=0<CR>",           desc = "Buffer Diagnostics" },
-      { "<leader>xs", "<cmd>Trouble symbols toggle focus=false<CR>",                desc = "Symbols (Trouble)" },
+      { "<leader>xx", "<cmd>Trouble diagnostics toggle<CR>", desc = "Diagnostics (Trouble)" },
+      { "<leader>xb", "<cmd>Trouble diagnostics toggle filter.buf=0<CR>", desc = "Buffer Diagnostics" },
+      { "<leader>xs", "<cmd>Trouble symbols toggle focus=false<CR>", desc = "Symbols (Trouble)" },
       { "<leader>xl", "<cmd>Trouble lsp toggle focus=false win.position=right<CR>", desc = "LSP Definitions (Trouble)" },
-      { "<leader>xq", "<cmd>Trouble qflist toggle<CR>",                             desc = "Quickfix (Trouble)" },
+      { "<leader>xq", "<cmd>Trouble qflist toggle<CR>", desc = "Quickfix (Trouble)" },
     },
   },
 
-  -- ── Dashboard ─────────────────────────────────────────────────────────────
   {
     "goolord/alpha-nvim",
     event = "VimEnter",
@@ -573,19 +547,18 @@ require("lazy").setup({
       }
 
       dashboard.section.buttons.val = {
-        dashboard.button("f", "  Find File",     "<cmd>Telescope find_files<CR>"),
-        dashboard.button("r", "  Recent Files",  "<cmd>Telescope oldfiles<CR>"),
-        dashboard.button("g", "  Live Grep",     "<cmd>Telescope live_grep<CR>"),
+        dashboard.button("f", "  Find File", "<cmd>Telescope find_files<CR>"),
+        dashboard.button("r", "  Recent Files", "<cmd>Telescope oldfiles<CR>"),
+        dashboard.button("g", "  Live Grep", "<cmd>Telescope live_grep<CR>"),
         dashboard.button("e", "  File Explorer", "<cmd>NvimTreeToggle<CR>"),
-        dashboard.button("l", "  Lazy Plugins",  "<cmd>Lazy<CR>"),
-        dashboard.button("q", "  Quit",          "<cmd>qa<CR>"),
+        dashboard.button("l", "  Lazy Plugins", "<cmd>Lazy<CR>"),
+        dashboard.button("q", "  Quit", "<cmd>qa<CR>"),
       }
 
       alpha.setup(dashboard.opts)
     end,
   },
 
-  -- ── Colorscheme ───────────────────────────────────────────────────────────
   {
     "catppuccin/nvim",
     name = "catppuccin",
@@ -596,19 +569,18 @@ require("lazy").setup({
         flavour = "mocha",
         transparent_background = false,
         integrations = {
-          treesitter    = true,
-          cmp           = true,
-          gitsigns      = true,
-          telescope     = { enabled = true },
-          native_lsp    = { enabled = true },
-          nvimtree      = true,
-          bufferline    = true,
-          lualine       = true,
+          treesitter = true,
+          cmp = true,
+          gitsigns = true,
+          telescope = { enabled = true },
+          native_lsp = { enabled = true },
+          nvimtree = true,
+          lualine = true,
           indent_blankline = { enabled = true },
-          which_key     = true,
-          alpha         = true,
-          mason         = true,
-          trouble       = true,
+          which_key = true,
+          alpha = true,
+          mason = true,
+          trouble = true,
         },
       })
       vim.cmd.colorscheme("catppuccin")
@@ -626,7 +598,6 @@ require("lazy").setup({
   },
 })
 
--- ==================== LSP SETUP ====================
 require("mason").setup({
   ui = {
     border = "rounded",
@@ -636,57 +607,38 @@ require("mason").setup({
 
 require("mason-lspconfig").setup({
   ensure_installed = {
-    "gopls",
-    "pyright",
-    "intelephense",
-    "ts_ls",
-    "svelte",
-    "tailwindcss",
-    "html",
-    "cssls",
-    "jsonls",
-    "yamlls",
-    "lua_ls",
-    "dockerls",
+    "gopls", "pyright", "intelephense", "ts_ls", "svelte",
+    "tailwindcss", "html", "cssls", "jsonls", "yamlls",
+    "lua_ls", "dockerls",
   },
   automatic_installation = true,
 })
 
-local lspconfig   = require("lspconfig")
+local lspconfig = require("lspconfig")
 local capabilities = require("cmp_nvim_lsp").default_capabilities()
 
 local on_attach = function(client, bufnr)
   local opts = { buffer = bufnr, silent = true }
 
-  -- Navigation
-  vim.keymap.set("n", "gd",  vim.lsp.buf.definition,      opts)
-  vim.keymap.set("n", "gD",  vim.lsp.buf.declaration,      opts)
-  vim.keymap.set("n", "gr",  vim.lsp.buf.references,       opts)
-  vim.keymap.set("n", "gi",  vim.lsp.buf.implementation,   opts)
-  vim.keymap.set("n", "gt",  vim.lsp.buf.type_definition,  opts)
-
-  -- Info
-  vim.keymap.set("n", "K",     vim.lsp.buf.hover,           opts)
-  vim.keymap.set("n", "<C-k>", vim.lsp.buf.signature_help,  opts)
-  vim.keymap.set("i", "<C-k>", vim.lsp.buf.signature_help,  opts)
-
-  -- Actions
-  vim.keymap.set("n", "<leader>rn", vim.lsp.buf.rename,       opts)
-  vim.keymap.set("n", "<leader>ca", vim.lsp.buf.code_action,  opts)
-  vim.keymap.set("v", "<leader>ca", vim.lsp.buf.code_action,  opts)
-
-  -- Diagnostics
-  vim.keymap.set("n", "[d",         vim.diagnostic.goto_prev,   opts)
-  vim.keymap.set("n", "]d",         vim.diagnostic.goto_next,   opts)
-  vim.keymap.set("n", "<leader>de", vim.diagnostic.open_float,  opts)
-  vim.keymap.set("n", "<leader>dq", vim.diagnostic.setloclist,  opts)
-
-  -- Format
+  vim.keymap.set("n", "gd", vim.lsp.buf.definition, opts)
+  vim.keymap.set("n", "gD", vim.lsp.buf.declaration, opts)
+  vim.keymap.set("n", "gr", vim.lsp.buf.references, opts)
+  vim.keymap.set("n", "gi", vim.lsp.buf.implementation, opts)
+  vim.keymap.set("n", "gt", vim.lsp.buf.type_definition, opts)
+  vim.keymap.set("n", "K", vim.lsp.buf.hover, opts)
+  vim.keymap.set("n", "<C-k>", vim.lsp.buf.signature_help, opts)
+  vim.keymap.set("i", "<C-k>", vim.lsp.buf.signature_help, opts)
+  vim.keymap.set("n", "<leader>rn", vim.lsp.buf.rename, opts)
+  vim.keymap.set("n", "<leader>ca", vim.lsp.buf.code_action, opts)
+  vim.keymap.set("v", "<leader>ca", vim.lsp.buf.code_action, opts)
+  vim.keymap.set("n", "[d", vim.diagnostic.goto_prev, opts)
+  vim.keymap.set("n", "]d", vim.diagnostic.goto_next, opts)
+  vim.keymap.set("n", "<leader>de", vim.diagnostic.open_float, opts)
+  vim.keymap.set("n", "<leader>dq", vim.diagnostic.setloclist, opts)
   vim.keymap.set("n", "<leader>cf", function()
     require("conform").format({ async = true, lsp_fallback = true })
   end, opts)
 
-  -- Highlight word under cursor
   if client.server_capabilities.documentHighlightProvider then
     vim.api.nvim_create_autocmd({ "CursorHold", "CursorHoldI" }, {
       buffer = bufnr,
@@ -706,9 +658,7 @@ local servers = {
         analyses = { unusedparams = true },
         staticcheck = true,
         gofumpt = true,
-        -- ✅ NEU: Debounce diagnostic agar tidak flood saat ngetik
         diagnosticsDelay = "500ms",
-        -- ✅ NEU: Paksa gopls refresh setelah save
         diagnosticsTrigger = "Save",
       },
     },
@@ -721,13 +671,13 @@ local servers = {
     },
   },
   intelephense = {},
-  ts_ls        = {},
-  svelte       = {},
-  tailwindcss  = {},
-  html         = {},
-  cssls        = {},
-  jsonls       = {},
-  yamlls       = {},
+  ts_ls = {},
+  svelte = {},
+  tailwindcss = {},
+  html = {},
+  cssls = {},
+  jsonls = {},
+  yamlls = {},
   lua_ls = {
     settings = {
       Lua = {
@@ -740,24 +690,20 @@ local servers = {
 }
 
 for server, config in pairs(servers) do
-  config.on_attach    = on_attach
+  config.on_attach = on_attach
   config.capabilities = capabilities
   lspconfig[server].setup(config)
 end
 
--- ==================== DIAGNOSTIC CONFIG ====================
--- ✅ update_in_insert = true tapi hanya tampilkan ERROR (bukan Warning)
---    supaya tidak berisik saat ngetik, tapi langsung tahu ada syntax error
 vim.diagnostic.config({
   virtual_text = {
     prefix = "●",
     source = "if_many",
-    -- ✅ Filter: saat insert mode hanya tampil Error, normal mode semua
-    severity = nil,  -- normal mode: semua severity
+    severity = nil,
   },
   signs = true,
   underline = true,
-  update_in_insert = true,   -- ✅ Aktif saat ngetik (real-time detection)
+  update_in_insert = true,
   severity_sort = true,
   float = { border = "rounded", source = "always" },
 })
@@ -768,8 +714,7 @@ for type, icon in pairs(signs) do
   vim.fn.sign_define(hl, { text = icon, texthl = hl })
 end
 
--- ==================== AUTOCOMPLETION ====================
-local cmp     = require("cmp")
+local cmp = require("cmp")
 local luasnip = require("luasnip")
 
 require("luasnip.loaders.from_vscode").lazy_load()
@@ -779,164 +724,185 @@ cmp.setup({
     expand = function(args) luasnip.lsp_expand(args.body) end,
   },
   window = {
-    completion    = cmp.config.window.bordered(),
+    completion = cmp.config.window.bordered(),
     documentation = cmp.config.window.bordered(),
   },
-  -- ✅ NEU: Performance — batasi berapa item di-render sekaligus
   performance = {
-    debounce          = 60,   -- Delay sebelum trigger completion (ms)
-    throttle          = 30,   -- Throttle update list (ms)
-    fetching_timeout  = 500,  -- Timeout per source
-    max_view_entries  = 20,   -- Max item ditampilkan (hemat render CPU)
+    debounce = 60,
+    throttle = 30,
+    fetching_timeout = 500,
+    max_view_entries = 20,
   },
   mapping = cmp.mapping.preset.insert({
     ["<C-Space>"] = cmp.mapping.complete(),
-    ["<C-e>"]     = cmp.mapping.abort(),
-    ["<C-b>"]     = cmp.mapping.scroll_docs(-4),
-    ["<C-f>"]     = cmp.mapping.scroll_docs(4),
-    ["<CR>"]      = cmp.mapping.confirm({ select = false }),
+    ["<C-e>"] = cmp.mapping.abort(),
+    ["<C-b>"] = cmp.mapping.scroll_docs(-4),
+    ["<C-f>"] = cmp.mapping.scroll_docs(4),
+    ["<CR>"] = cmp.mapping.confirm({ select = false }),
     ["<Tab>"] = cmp.mapping(function(fallback)
-      if cmp.visible() then cmp.select_next_item()
-      elseif luasnip.expand_or_jumpable() then luasnip.expand_or_jump()
-      else fallback()
+      if cmp.visible() then
+        cmp.select_next_item()
+      elseif luasnip.expand_or_jumpable() then
+        luasnip.expand_or_jump()
+      else
+        fallback()
       end
     end, { "i", "s" }),
     ["<S-Tab>"] = cmp.mapping(function(fallback)
-      if cmp.visible() then cmp.select_prev_item()
-      elseif luasnip.jumpable(-1) then luasnip.jump(-1)
-      else fallback()
+      if cmp.visible() then
+        cmp.select_prev_item()
+      elseif luasnip.jumpable(-1) then
+        luasnip.jump(-1)
+      else
+        fallback()
       end
     end, { "i", "s" }),
   }),
   sources = cmp.config.sources({
-    { name = "nvim_lsp",  priority = 1000 },
-    { name = "codeium",   priority = 900 },   -- ✅ NEU: Codeium AI source
-    { name = "luasnip",   priority = 750 },
-    { name = "path",      priority = 500 },
+    { name = "nvim_lsp", priority = 1000 },
+    { name = "codeium", priority = 900 },
+    { name = "luasnip", priority = 750 },
+    { name = "path", priority = 500 },
   }, {
     { name = "buffer", keyword_length = 3, priority = 250 },
   }),
 })
 
--- ==================== KEYMAPS ====================
+vim.keymap.set("n", "<C-c>", '"+yy', { desc = "Copy Line to Clipboard", silent = true })
+vim.keymap.set("v", "<C-c>", '"+y', { desc = "Copy Selection to Clipboard", silent = true })
+vim.keymap.set("v", "<leader>y", '"+y', { desc = "Yank ke Clipboard" })
+vim.keymap.set("n", "<leader>y", '"+yy', { desc = "Yank Baris ke Clipboard" })
+vim.keymap.set({ "n", "v" }, "<leader>p", '"+p', { desc = "Paste dari Clipboard" })
+vim.keymap.set("v", "p", '"_dP')
+vim.keymap.set({ "n", "v" }, "<C-v>", '"+p', { desc = "Paste dari Clipboard" })
 
--- General
-vim.keymap.set("n", "<Esc>",      ":nohlsearch<CR>",   { silent = true })
-vim.keymap.set("n", "<C-s>",      ":w<CR>")
-vim.keymap.set("i", "<C-s>",      "<Esc>:w<CR>a")
-vim.keymap.set("n", "<leader>w",  ":w<CR>",            { desc = "Save" })
-vim.keymap.set("n", "<leader>q",  ":q<CR>",            { desc = "Quit" })
-vim.keymap.set("n", "<leader>Q",  ":qa!<CR>",          { desc = "Force Quit All" })
+vim.keymap.set("n", "<leader>s", ":w<CR>", { desc = "Save File" })
+vim.keymap.set("i", "<C-s>", "<Esc>:w<CR>a")
+vim.keymap.set("n", "<leader>q", ":q<CR>", { desc = "Quit" })
+vim.keymap.set("n", "<leader>Q", ":qa!<CR>", { desc = "Force Quit All" })
 
--- Window splits
-vim.keymap.set("n", "<leader>v",  ":vsplit<CR>",       { desc = "Vertical Split" })
-vim.keymap.set("n", "<leader>hh", ":split<CR>",        { desc = "Horizontal Split" })
-vim.keymap.set("n", "<leader>x",  ":close<CR>",        { desc = "Close Split" })
+vim.keymap.set("n", "<leader>h", ":split<CR>", { desc = "Horizontal Split" })
+vim.keymap.set("n", "<leader>v", ":vsplit<CR>", { desc = "Vertical Split" })
+vim.keymap.set("n", "<leader>wc", ":close<CR>", { desc = "Tutup Split Aktif" })
+vim.keymap.set("n", "<leader>wo", ":only<CR>", { desc = "Tutup Split Lain" })
 
--- Window navigation
-vim.keymap.set("n", "<C-h>", "<C-w>h")
-vim.keymap.set("n", "<C-j>", "<C-w>j")
-vim.keymap.set("n", "<C-k>", "<C-w>k")
-vim.keymap.set("n", "<C-l>", "<C-w>l")
+vim.keymap.set("n", "<leader>wf", function()
+  require("telescope.builtin").find_files({
+    attach_mappings = function(_, map)
+      map("i", "<CR>", function(prompt_bufnr)
+        local selected = require("telescope.actions.state").get_selected_entry()
+        require("telescope.actions").close(prompt_bufnr)
+        if selected then
+          vim.cmd("vsplit " .. vim.fn.fnameescape(selected.path))
+        end
+      end)
+      return true
+    end,
+  })
+end, { desc = "Buka File di VSplit Baru" })
 
--- Window resize
-vim.keymap.set("n", "<C-Up>",    ":resize +2<CR>",          { silent = true })
-vim.keymap.set("n", "<C-Down>",  ":resize -2<CR>",          { silent = true })
-vim.keymap.set("n", "<C-Left>",  ":vertical resize -2<CR>", { silent = true })
+vim.keymap.set("n", "<leader>wg", function()
+  require("telescope.builtin").find_files({
+    attach_mappings = function(_, map)
+      map("i", "<CR>", function(prompt_bufnr)
+        local selected = require("telescope.actions.state").get_selected_entry()
+        require("telescope.actions").close(prompt_bufnr)
+        if selected then
+          vim.cmd("split " .. vim.fn.fnameescape(selected.path))
+        end
+      end)
+      return true
+    end,
+  })
+end, { desc = "Buka File di HSplit Baru" })
+
+vim.keymap.set("n", "<C-h>", "<C-w>h", { desc = "Pindah ke split Kiri" })
+vim.keymap.set("n", "<C-j>", "<C-w>j", { desc = "Pindah ke split Bawah" })
+vim.keymap.set("n", "<C-k>", "<C-w>k", { desc = "Pindah ke split Atas" })
+vim.keymap.set("n", "<C-l>", "<C-w>l", { desc = "Pindah ke split Kanan" })
+
+vim.keymap.set("n", "<C-Up>", ":resize +2<CR>", { silent = true })
+vim.keymap.set("n", "<C-Down>", ":resize -2<CR>", { silent = true })
+vim.keymap.set("n", "<C-Left>", ":vertical resize -2<CR>", { silent = true })
 vim.keymap.set("n", "<C-Right>", ":vertical resize +2<CR>", { silent = true })
 
--- Buffer management
-vim.keymap.set("n", "<Tab>",       ":bnext<CR>",    { desc = "Next Buffer" })
-vim.keymap.set("n", "<S-Tab>",     ":bprevious<CR>", { desc = "Prev Buffer" })
-vim.keymap.set("n", "<leader>bd",  ":bdelete<CR>",  { desc = "Delete Buffer" })
-vim.keymap.set("n", "<leader>ba",  ":%bdelete|edit#|bdelete#<CR>", { desc = "Delete All Other Buffers" })
+vim.keymap.set("n", "<leader>bd", ":bdelete<CR>", { desc = "Hapus Buffer" })
+vim.keymap.set("n", "<leader>ba", ":%bdelete|edit#|bdelete#<CR>", { desc = "Hapus Semua Buffer Lain" })
 
--- File explorer
-vim.keymap.set("n", "<leader>e",   ":NvimTreeToggle<CR>",  { desc = "File Explorer" })
-vim.keymap.set("n", "<leader>E",   ":NvimTreeFocus<CR>",   { desc = "Focus Explorer" })
+vim.keymap.set("n", "<leader>e", ":NvimTreeToggle<CR>", { desc = "File Explorer" })
+vim.keymap.set("n", "<leader>E", ":NvimTreeFocus<CR>", { desc = "Focus Explorer" })
 
--- Telescope
 local tb = require("telescope.builtin")
-vim.keymap.set("n", "<leader>ff", tb.find_files,               { desc = "Find Files" })
-vim.keymap.set("n", "<leader>fg", tb.live_grep,                { desc = "Live Grep" })
-vim.keymap.set("n", "<leader>fb", tb.buffers,                  { desc = "Buffers" })
-vim.keymap.set("n", "<leader>fr", tb.oldfiles,                 { desc = "Recent Files" })
-vim.keymap.set("n", "<leader>fw", tb.grep_string,              { desc = "Grep Word" })
-vim.keymap.set("n", "<leader>fh", tb.help_tags,                { desc = "Help Tags" })
-vim.keymap.set("n", "<leader>fd", tb.diagnostics,              { desc = "Diagnostics" })
-vim.keymap.set("n", "<leader>fs", tb.lsp_document_symbols,     { desc = "Symbols" })
-vim.keymap.set("n", "<leader>fS", tb.lsp_workspace_symbols,    { desc = "Workspace Symbols" })
-vim.keymap.set("n", "<leader>fc", tb.commands,                 { desc = "Commands" })
-vim.keymap.set("n", "<leader>fk", tb.keymaps,                  { desc = "Keymaps" })
+vim.keymap.set("n", "<leader>ff", tb.find_files, { desc = "Find Files" })
+vim.keymap.set("n", "<leader>fg", tb.live_grep, { desc = "Live Grep" })
+vim.keymap.set("n", "<leader>fb", tb.buffers, { desc = "Buffers" })
+vim.keymap.set("n", "<leader>fr", tb.oldfiles, { desc = "Recent Files" })
+vim.keymap.set("n", "<leader>fw", tb.grep_string, { desc = "Grep Word" })
+vim.keymap.set("n", "<leader>fh", tb.help_tags, { desc = "Help Tags" })
+vim.keymap.set("n", "<leader>fd", tb.diagnostics, { desc = "Diagnostics" })
+vim.keymap.set("n", "<leader>fs", tb.lsp_document_symbols, { desc = "Symbols" })
+vim.keymap.set("n", "<leader>fS", tb.lsp_workspace_symbols, { desc = "Workspace Symbols" })
+vim.keymap.set("n", "<leader>fc", tb.commands, { desc = "Commands" })
+vim.keymap.set("n", "<leader>fk", tb.keymaps, { desc = "Keymaps" })
 
--- Todo comments
-vim.keymap.set("n", "<leader>ft", "<cmd>TodoTelescope<CR>",    { desc = "Find TODOs" })
+vim.keymap.set("n", "<leader>ft", "<cmd>TodoTelescope<CR>", { desc = "Find TODOs" })
 
--- Find and Replace (Spectre)
-vim.keymap.set("n", "<leader>sr", function() require("spectre").open() end,                           { desc = "Open Spectre" })
-vim.keymap.set("n", "<leader>sw", function() require("spectre").open_visual({ select_word=true }) end, { desc = "Search Word" })
-vim.keymap.set("v", "<leader>sw", function() require("spectre").open_visual() end,                    { desc = "Search Selection" })
-vim.keymap.set("n", "<leader>sf", function() require("spectre").open_file_search({ select_word=true }) end, { desc = "Search in File" })
+vim.keymap.set("n", "<leader>sr", function() require("spectre").open() end, { desc = "Open Spectre" })
+vim.keymap.set("n", "<leader>sw", function() require("spectre").open_visual({ select_word = true }) end, { desc = "Search Word" })
+vim.keymap.set("v", "<leader>sw", function() require("spectre").open_visual() end, { desc = "Search Selection" })
+vim.keymap.set("n", "<leader>sf", function() require("spectre").open_file_search({ select_word = true }) end, { desc = "Search in File" })
 
--- Visual mode
 vim.keymap.set("v", "<", "<gv")
 vim.keymap.set("v", ">", ">gv")
 vim.keymap.set("v", "J", ":m '>+1<CR>gv=gv")
 vim.keymap.set("v", "K", ":m '<-2<CR>gv=gv")
 
--- Copy/Paste
-vim.keymap.set("v", "<leader>y", '"+y',   { desc = "Yank to Clipboard" })
-vim.keymap.set("n", "<leader>y", '"+yy',  { desc = "Yank Line to Clipboard" })
-vim.keymap.set({ "n", "v" }, "<leader>p", '"+p', { desc = "Paste from Clipboard" })
-vim.keymap.set("v", "p", '"_dP')
-
--- Navigation (centered)
+vim.keymap.set("n", "<Esc>", ":nohlsearch<CR>", { silent = true })
 vim.keymap.set("n", "<C-d>", "<C-d>zz")
 vim.keymap.set("n", "<C-u>", "<C-u>zz")
-vim.keymap.set("n", "n",     "nzzzv")
-vim.keymap.set("n", "N",     "Nzzzv")
-vim.keymap.set("n", "G",     "Gzz")
+vim.keymap.set("n", "n", "nzzzv")
+vim.keymap.set("n", "N", "Nzzzv")
+vim.keymap.set("n", "G", "Gzz")
 
--- Search
-vim.keymap.set("n", "<leader>/",  "/",                                      { desc = "Search" })
-vim.keymap.set("n", "<leader>s",  ":%s/",                                   { desc = "Replace in File" })
-vim.keymap.set("v", "<leader>s",  ":s/",                                    { desc = "Replace in Selection" })
-vim.keymap.set("n", "<leader>S",  ":%s/<C-r><C-w>//g<Left><Left>",          { desc = "Replace Word Under Cursor" })
-vim.keymap.set("n", "*",          "*zz")
-vim.keymap.set("n", "#",          "#zz")
+vim.keymap.set("n", "<leader>/", "/", { desc = "Search" })
+vim.keymap.set("n", "<leader>S", ":%s/", { desc = "Replace in File" })
+vim.keymap.set("v", "<leader>S", ":s/", { desc = "Replace in Selection" })
+vim.keymap.set("n", "<leader>SR", ":%s/<C-r><C-w>//g<Left><Left>", { desc = "Replace Word Under Cursor" })
+vim.keymap.set("n", "*", "*zz")
+vim.keymap.set("n", "#", "#zz")
 
--- LazyGit
 vim.keymap.set("n", "<leader>gg", "<cmd>LazyGit<CR>", { desc = "LazyGit" })
 
--- ✅ NEU: Codeium AI keymaps
--- Jalankan :Codeium Auth pertama kali untuk login
-vim.keymap.set("n", "<leader>aa", "<cmd>Codeium Auth<CR>",    { desc = "Codeium Auth / Login" })
-vim.keymap.set("n", "<leader>at", "<cmd>Codeium Toggle<CR>",  { desc = "Codeium Toggle On/Off" })
--- Accept/dismiss ghost text saat insert mode
-vim.keymap.set("i", "<C-g>",  function() return vim.fn["codeium#Accept"]() end,       { expr = true, desc = "Codeium Accept" })
-vim.keymap.set("i", "<C-x>",  function() return vim.fn["codeium#Clear"]() end,        { expr = true, desc = "Codeium Dismiss" })
-vim.keymap.set("i", "<M-]>",  function() return vim.fn["codeium#CycleCompletions"](1) end,  { expr = true, desc = "Codeium Next" })
-vim.keymap.set("i", "<M-[>",  function() return vim.fn["codeium#CycleCompletions"](-1) end, { expr = true, desc = "Codeium Prev" })
+vim.keymap.set("n", "<leader>aa", "<cmd>Codeium Auth<CR>", { desc = "Codeium Auth" })
+vim.keymap.set("n", "<leader>at", "<cmd>Codeium Toggle<CR>", { desc = "Codeium Toggle" })
+vim.keymap.set("i", "<C-g>", function() return vim.fn["codeium#Accept"]() end, { expr = true, desc = "Codeium Accept" })
+vim.keymap.set("i", "<C-x>", function() return vim.fn["codeium#Clear"]() end, { expr = true, desc = "Codeium Dismiss" })
+vim.keymap.set("i", "<M-]>", function() return vim.fn["codeium#CycleCompletions"](1) end, { expr = true, desc = "Codeium Next" })
+vim.keymap.set("i", "<M-[>", function() return vim.fn["codeium#CycleCompletions"](-1) end, { expr = true, desc = "Codeium Prev" })
 
--- ==================== AUTOCOMMANDS ====================
+vim.keymap.set("n", "<leader>rn", vim.lsp.buf.rename, { desc = "Rename", buffer = true })
+vim.keymap.set("n", "<leader>ca", vim.lsp.buf.code_action, { desc = "Code Action", buffer = true })
+vim.keymap.set("n", "K", vim.lsp.buf.hover, { desc = "Hover", buffer = true })
 
--- Highlight on yank
+vim.keymap.set("n", "<leader>xx", "<cmd>Trouble diagnostics toggle<CR>", { desc = "Diagnostics" })
+
 vim.api.nvim_create_autocmd("TextYankPost", {
+  desc = "Highlight yanked text",
   callback = function()
     vim.highlight.on_yank({ timeout = 200 })
   end,
 })
 
--- Trailing whitespace
 vim.api.nvim_create_autocmd("BufWritePre", {
+  desc = "Remove trailing whitespace",
   pattern = "*",
   command = [[%s/\s\+$//e]],
 })
 
--- Restore cursor
 vim.api.nvim_create_autocmd("BufReadPost", {
+  desc = "Restore cursor position",
   callback = function()
-    local mark   = vim.api.nvim_buf_get_mark(0, '"')
+    local mark = vim.api.nvim_buf_get_mark(0, '"')
     local lcount = vim.api.nvim_buf_line_count(0)
     if mark[1] > 0 and mark[1] <= lcount then
       pcall(vim.api.nvim_win_set_cursor, 0, mark)
@@ -944,28 +910,32 @@ vim.api.nvim_create_autocmd("BufReadPost", {
   end,
 })
 
--- Frontend: 2-space indent
 vim.api.nvim_create_autocmd("FileType", {
-  pattern = { "javascript", "typescript", "typescriptreact", "javascriptreact",
-              "svelte", "html", "css", "scss", "json", "yaml" },
+  desc = "2-space indent for frontend files",
+  pattern = {
+    "javascript", "typescript", "typescriptreact", "javascriptreact",
+    "svelte", "html", "css", "scss", "json", "yaml",
+  },
   callback = function()
     vim.opt_local.shiftwidth = 2
-    vim.opt_local.tabstop    = 2
+    vim.opt_local.tabstop = 2
   end,
 })
 
--- Close beberapa window dengan q
 vim.api.nvim_create_autocmd("FileType", {
-  pattern = { "help", "lspinfo", "man", "notify", "qf", "spectre_panel",
-              "startuptime", "tsplayground", "checkhealth" },
+  desc = "Close utility windows with q",
+  pattern = {
+    "help", "lspinfo", "man", "notify", "qf", "spectre_panel",
+    "startuptime", "tsplayground", "checkhealth",
+  },
   callback = function(event)
     vim.bo[event.buf].buflisted = false
     vim.keymap.set("n", "q", "<cmd>close<CR>", { buffer = event.buf, silent = true })
   end,
 })
 
--- Auto create missing directories saat save
 vim.api.nvim_create_autocmd("BufWritePre", {
+  desc = "Create missing directories",
   callback = function(event)
     if event.match:match("^%w%w+://") then return end
     local file = vim.loop.fs_realpath(event.match) or event.match
@@ -973,32 +943,26 @@ vim.api.nvim_create_autocmd("BufWritePre", {
   end,
 })
 
--- ✅ NEU: Fix Go stale diagnostics — flush & re-request setiap BufWritePost
---    Ini mengatasi masalah "kode sudah benar tapi error lama tidak hilang"
 vim.api.nvim_create_autocmd("BufWritePost", {
+  desc = "Reset Go diagnostics after save",
   pattern = "*.go",
   callback = function()
-    -- Kecil delay agar gopls selesai index dulu baru kita reset
     vim.defer_fn(function()
       local bufnr = vim.api.nvim_get_current_buf()
-      -- Reset diagnostic lama di buffer ini
       vim.diagnostic.reset(nil, bufnr)
-      -- Minta LSP kirim ulang diagnostic terbaru
-      for _, client in ipairs(vim.lsp.get_active_clients({ bufnr = bufnr })) do
+      for _, client in ipairs(vim.lsp.get_clients({ bufnr = bufnr })) do
         if client.name == "gopls" then
-          -- Trigger diagnostic refresh via didSave notification
           vim.lsp.buf_notify(bufnr, "textDocument/didSave", {
             textDocument = { uri = vim.uri_from_bufnr(bufnr) },
           })
         end
       end
-    end, 300)  -- 300ms setelah save, gopls seharusnya sudah selesai parse
+    end, 300)
   end,
 })
 
--- ✅ NEU: Saat masuk insert mode, sembunyikan Warning/Hint
---    Biarkan Error saja yang tampil supaya tidak noisy
 vim.api.nvim_create_autocmd("InsertEnter", {
+  desc = "Insert mode: show only errors",
   callback = function()
     vim.diagnostic.config({
       virtual_text = {
@@ -1010,17 +974,17 @@ vim.api.nvim_create_autocmd("InsertEnter", {
   end,
 })
 
--- ✅ NEU: Saat keluar insert mode, kembalikan semua severity
 vim.api.nvim_create_autocmd("InsertLeave", {
+  desc = "Normal mode: show all diagnostics",
   callback = function()
     vim.diagnostic.config({
       virtual_text = {
         prefix = "●",
         source = "if_many",
-        severity = nil,  -- semua severity tampil lagi
+        severity = nil,
       },
     })
   end,
 })
 
-print("⚡ Neovim Ready! (12GB RAM | Codeium AI | Go Fix)")
+print("Neovim Ready)
